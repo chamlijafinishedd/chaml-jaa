@@ -13,6 +13,10 @@ const ACTIVITY_IMAGES: Record<string, { image?: string; alt: string }> = {
     image: "/chamlija/bisiklet.jpeg",
     alt: "Cyclists enjoying a scenic outdoor area at Chamlija",
   },
+  "Bike Riding (Own Bike)": {
+    image: "/chamlija/bisiklet.jpeg",
+    alt: "Cyclists enjoying a scenic outdoor area at Chamlija",
+  },
   "Yellow Tree Playground": {
     image: "/chamlija/15.jpg",
     alt: "Children playing in a bright outdoor playground at Chamlija",
@@ -26,6 +30,10 @@ const ACTIVITY_IMAGES: Record<string, { image?: string; alt: string }> = {
     alt: "Basketball court area in a family-friendly outdoor setting",
   },
   "Nature & Open Spaces": {
+    image: "/chamlija/19.jpg",
+    alt: "Open natural green space and outdoor scenery at Chamlija",
+  },
+  "Nature / Outdoor Areas": {
     image: "/chamlija/19.jpg",
     alt: "Open natural green space and outdoor scenery at Chamlija",
   },
