@@ -72,6 +72,7 @@ export default function BookingPage() {
   const [selectedPaidActivityId, setSelectedPaidActivityId] = useState<string>("");
   const [selectedTentAreaId, setSelectedTentAreaId] = useState<string>("");
   const [selectedPhotoShootId, setSelectedPhotoShootId] = useState<string>("");
+  const [timeConfirmed, setTimeConfirmed] = useState(false);
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [productError, setProductError] = useState<string | null>(null);
   const [availabilityState, setAvailabilityState] = useState<{
@@ -184,6 +185,7 @@ export default function BookingPage() {
     setForm((previous) => ({ ...previous, [field]: value }));
     setErrors((previous) => ({ ...previous, [field]: "" }));
     if (field === "bookingDate" || field === "bookingTime" || field === "picnicAreaId") {
+      setTimeConfirmed(false);
       setAvailabilityState((previous) => ({ ...previous, message: "", isAvailable: null, availableSlots: [], suggestedDates: [], error: null }));
     }
   }
@@ -304,15 +306,34 @@ export default function BookingPage() {
     setAvailabilityState((previous) => ({
       ...previous,
       message: form.picnicAreaId ? "This picnic area is available." : "Entry-only booking is available.",
+      isAvailable: null,
+      error: null,
+    }));
+    setTimeConfirmed(false);
+  }
+
+  function confirmSelectedTime() {
+    if (!form.bookingTime || !availabilityState.availableSlots.includes(form.bookingTime)) return;
+
+    setTimeConfirmed(true);
+    setAvailabilityState((previous) => ({
+      ...previous,
+      message: form.picnicAreaId ? "This picnic area is available." : "Entry-only booking is available.",
       isAvailable: true,
       error: null,
     }));
+  }
+
+  function changeSelectedTime() {
+    setTimeConfirmed(false);
+    setAvailabilityState((previous) => ({ ...previous, message: "Select a different available time.", isAvailable: null }));
   }
 
   // Selecting a suggested date re-checks availability for that date so the user can then pick a time.
   async function handleDateSelect(date: string) {
     setForm((previous) => ({ ...previous, bookingDate: date, bookingTime: "" }));
     setErrors((previous) => ({ ...previous, bookingDate: "", bookingTime: "" }));
+    setTimeConfirmed(false);
 
     if (!form.picnicAreaId) {
       return;
@@ -697,30 +718,40 @@ export default function BookingPage() {
 
                 {availabilityState.availableSlots.length > 0 && (
                   <div className="mt-4">
-                    <p className="text-sm font-semibold text-charcoal/70">Available times:</p>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {availabilityState.availableSlots.map((slot) => (
+                    {!timeConfirmed ? (
+                      <>
+                        <p className="text-sm font-semibold text-charcoal/70">Available times:</p>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {availabilityState.availableSlots.map((slot) => (
+                            <button
+                              key={slot}
+                              type="button"
+                              onClick={() => handleSlotSelect(slot)}
+                              className={`min-h-10 rounded-full border px-3 py-2 text-xs font-semibold ${
+                                form.bookingTime === slot
+                                  ? "border-forest bg-forest text-white"
+                                  : "border-forest/20 bg-white text-charcoal/70"
+                              }`}
+                            >
+                              {slot}
+                            </button>
+                          ))}
+                        </div>
                         <button
-                          key={slot}
                           type="button"
-                          onClick={() => handleSlotSelect(slot)}
-                          className={`min-h-10 rounded-full border px-3 py-2 text-xs font-semibold ${
-                            form.bookingTime === slot
-                              ? "border-forest bg-forest text-white"
-                              : "border-forest/20 bg-white text-charcoal/70"
-                          }`}
+                          onClick={confirmSelectedTime}
+                          disabled={!form.bookingTime || !availabilityState.availableSlots.includes(form.bookingTime)}
+                          className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-full bg-forest px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-forest/20 transition hover:bg-forest-dark disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
                         >
-                          {slot}
+                          Confirm Time
                         </button>
-                      ))}
-                    </div>
-                    <button
-                      type="submit"
-                      disabled={!form.bookingTime || availabilityState.isAvailable !== true || submitState.isSubmitting}
-                      className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-full bg-forest px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-forest/20 transition hover:bg-forest-dark disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
-                    >
-                      {submitState.isSubmitting ? "Continuing..." : "Continue Booking"}
-                    </button>
+                      </>
+                    ) : (
+                      <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+                        <p className="text-sm font-semibold text-emerald-800">✓ Time confirmed: {form.bookingTime}</p>
+                        <button type="button" onClick={changeSelectedTime} className="text-xs font-semibold text-emerald-900 underline underline-offset-2">Change time</button>
+                      </div>
+                    )}
                   </div>
                 )}
 

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { BankTransferDisplay } from "@/components/booking/bank-transfer-display";
 import { CashAtGateDisplay } from "@/components/booking/cash-at-gate-display";
@@ -10,7 +10,6 @@ import { getBookingPaymentState, type BookingPaymentSummary, type PaymentMethod 
 
 function PaymentContent() {
   const searchParams = useSearchParams();
-  const router = useRouter();
   const bookingId = searchParams.get("bookingId") ?? "";
   const [state, setState] = useState<{
     loading: boolean;
@@ -76,13 +75,42 @@ function PaymentContent() {
     };
   }, [bookingId]);
 
+  const persistPaymentMethod = async (method: PaymentMethod) => {
+    if (!state.booking) return false;
+
+    setState((prev) => ({ ...prev, selectedMethod: method, confirming: true, error: null }));
+
+    try {
+      const response = await fetch("/api/payments/manual/confirm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bookingId: state.booking.id, paymentMethod: method }),
+      });
+
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(typeof result?.error === "string" ? result.error : "Failed to save payment method.");
+      }
+
+      setState((prev) => ({
+        ...prev,
+        confirming: false,
+        booking: prev.booking ? { ...prev.booking, payment_method: method, payment_status: method === "bank_transfer" ? "pending_payment" : "pending" } : prev.booking,
+      }));
+      return true;
+    } catch (error) {
+      setState((prev) => ({ ...prev, confirming: false, error: error instanceof Error ? error.message : "Failed to save payment method." }));
+      return false;
+    }
+  };
+
   const handleMethodSelect = (method: PaymentMethod) => {
-    // Just select the method locally, don't submit
-    setState((prev) => ({
-      ...prev,
-      selectedMethod: method,
-      error: null,
-    }));
+    if (method === "bank_transfer") {
+      void persistPaymentMethod(method);
+      return;
+    }
+
+    setState((prev) => ({ ...prev, selectedMethod: method, error: null }));
   };
 
   const handleConfirmReservation = async () => {
@@ -95,27 +123,8 @@ function PaymentContent() {
     }));
 
     try {
-      const response = await fetch("/api/payments/manual/confirm", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          bookingId: state.booking.id,
-          paymentMethod: state.selectedMethod,
-        }),
-      });
-
-      if (!response.ok) {
-        let errorMessage = "Failed to confirm reservation.";
-        try {
-          const errorData = await response.json();
-          if (errorData.error) {
-            errorMessage = errorData.error;
-          }
-        } catch {
-          // Response was not JSON, use default message
-        }
-        throw new Error(errorMessage);
-      }
+      const persisted = await persistPaymentMethod(state.selectedMethod);
+      if (!persisted) return;
 
       setState((prev) => ({
         ...prev,
@@ -145,14 +154,7 @@ function PaymentContent() {
 
   const showCustomerStatusState = !!state.booking && (currentPaymentState?.code === "under_review" || currentPaymentState?.code === "verified" || currentPaymentState?.code === "rejected" || currentPaymentState?.code === "receipt_required");
   const shouldShowBankFlow = !!state.booking && (state.selectedMethod === "bank_transfer" || state.booking.payment_method === "bank_transfer") && !showCustomerStatusState && !state.reservationConfirmed;
-  const showCompletionScreen = state.reservationConfirmed && state.selectedMethod === "cash_at_gate";
-
-  useEffect(() => {
-    if (!showCompletionScreen) return;
-
-    const redirectTimer = window.setTimeout(() => router.push("/"), 3000);
-    return () => window.clearTimeout(redirectTimer);
-  }, [router, showCompletionScreen]);
+  const showCompletionScreen = state.reservationConfirmed;
 
   return (
     <main className="booking-ui payment-page-root min-h-screen bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.08),_transparent_35%),_linear-gradient(180deg,_#f7f4ee_0%,_#f3efe7_100%)] px-4 py-8 text-slate-900 sm:px-6 lg:px-8 lg:py-10">
@@ -209,6 +211,28 @@ function PaymentContent() {
                     selectedMethod={state.selectedMethod}
                   />
                 </>
+              ) : showCompletionScreen ? (
+                <div className="mx-auto max-w-xl rounded-[2rem] border border-emerald-200 bg-emerald-50 p-8 text-center shadow-[0_20px_45px_rgba(16,185,129,0.12)]">
+                  <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-600 text-3xl font-black text-white">✓</div>
+                  <h2 className="mt-5 text-3xl font-black tracking-tight text-emerald-950">Booking Completed</h2>
+                  <p className="mx-auto mt-3 max-w-md text-base leading-7 text-emerald-900/80">Your booking has been received successfully. You will return to the home page shortly.</p>
+                  <div className="mt-6 rounded-2xl border border-emerald-200 bg-white p-4">
+                    <div className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Reservation reference</div>
+                    <div className="mt-2 break-words font-mono text-xl font-black text-slate-900">{state.booking.reservation_code || state.booking.id}</div>
+                  </div>
+                  <Link href="/" className="mt-6 inline-flex min-h-11 items-center justify-center rounded-full bg-emerald-700 px-6 py-3 text-sm font-semibold text-white shadow-[0_14px_28px_rgba(4,120,87,0.18)] transition hover:bg-emerald-800">
+                    ← Back to Home
+                  </Link>
+                </div>
+              ) : state.selectedMethod === "bank_transfer" && state.confirming ? (
+                <div className="rounded-[2rem] border border-emerald-200 bg-emerald-50 p-6 text-center">
+                  <p className="font-semibold text-emerald-900">Saving Bank Transfer payment method...</p>
+                </div>
+              ) : state.selectedMethod === "bank_transfer" && !showCustomerStatusState ? (
+                <BankTransferDisplay
+                  booking={state.booking}
+                  onCompleted={() => setState((prev) => ({ ...prev, reservationConfirmed: true, confirming: false, error: null }))}
+                />
               ) : showCustomerStatusState ? (
                 <div className="rounded-[2rem] border border-slate-200 bg-white p-6">
                   {currentPaymentState?.code === "under_review" && (
@@ -279,19 +303,6 @@ function PaymentContent() {
                     </button>
                   </div>
                 </div>
-              ) : showCompletionScreen ? (
-                <div className="mx-auto max-w-xl rounded-[2rem] border border-emerald-200 bg-emerald-50 p-8 text-center shadow-[0_20px_45px_rgba(16,185,129,0.12)]">
-                  <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-600 text-3xl font-black text-white">✓</div>
-                  <h2 className="mt-5 text-3xl font-black tracking-tight text-emerald-950">Booking Completed</h2>
-                  <p className="mx-auto mt-3 max-w-md text-base leading-7 text-emerald-900/80">Thank you. Your booking has been completed successfully. You will return to the home page shortly.</p>
-                  <div className="mt-6 rounded-2xl border border-emerald-200 bg-white p-4">
-                    <div className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Reservation reference</div>
-                    <div className="mt-2 break-words font-mono text-xl font-black text-slate-900">{state.booking.reservation_code || state.booking.id}</div>
-                  </div>
-                  <p className="mt-4 text-sm font-medium text-emerald-800">Redirecting to home in 3 seconds...</p>
-                </div>
-              ) : state.selectedMethod === "bank_transfer" ? (
-                <BankTransferDisplay booking={state.booking} />
               ) : (
                 <CashAtGateDisplay booking={state.booking} />
               )}

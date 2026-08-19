@@ -7,6 +7,7 @@ import type { BookingPaymentSummary } from "@/lib/payments/manual";
 
 interface BankTransferDisplayProps {
   booking: BookingPaymentSummary;
+  onCompleted?: () => void;
 }
 
 interface BankDetails {
@@ -30,7 +31,7 @@ function maskValue(value: string, keepStart = 4, keepEnd = 4): string {
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "application/pdf"];
 const MAX_FILE_SIZE = 4 * 1024 * 1024;
 
-export function BankTransferDisplay({ booking }: BankTransferDisplayProps) {
+export function BankTransferDisplay({ booking, onCompleted }: BankTransferDisplayProps) {
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [bankDetails, setBankDetails] = useState<BankDetails | null>(null);
   const [loading, setLoading] = useState(true);
@@ -176,7 +177,7 @@ export function BankTransferDisplay({ booking }: BankTransferDisplayProps) {
       }
 
       setStatusMessage(result.message || "Receipt submitted successfully. Your booking payment is now under review.");
-      window.location.reload();
+      onCompleted?.();
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Unable to submit your receipt.");
     } finally {
@@ -432,7 +433,7 @@ export function BankTransferDisplay({ booking }: BankTransferDisplayProps) {
             disabled={isSubmittingVerification}
             className="mt-5 inline-flex w-full items-center justify-center rounded-full bg-amber-500 px-6 py-3 text-sm font-semibold text-white shadow-[0_16px_30px_rgba(245,158,11,0.25)] transition hover:bg-amber-600 disabled:cursor-not-allowed disabled:bg-slate-300"
           >
-            {isSubmittingVerification ? "Submitting..." : "Submit Receipt for Verification"}
+            {isSubmittingVerification ? "Confirming..." : "Confirm Booking"}
           </button>
         )}
       </div>

@@ -1235,7 +1235,7 @@ export default async function AdminDashboardPage({
 
                 {selectedPayment?.receipt_url && (
                   <a
-                    href={selectedPayment.receipt_url}
+                    href={`/api/admin/bookings/${selectedBookingWithDiscount.id}/receipt`}
                     target="_blank"
                     rel="noreferrer"
                     className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
