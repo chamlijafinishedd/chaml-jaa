@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { requireAdminAccess } from "@/lib/auth/admin";
 import { getSupabaseAdminClient } from "@/lib/supabase/server";
 
 const CONFIRMED_PAYMENT_STATUSES = ["paid", "verified"];
@@ -17,18 +16,8 @@ function todayInSouthAfrica() {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Johannesburg", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
 }
 
-export async function GET() {
-  try {
-    const staff = await requireAdminAccess();
-    return NextResponse.json({ authenticated: true, staffEmail: staff.email });
-  } catch {
-    return NextResponse.json({ authenticated: false }, { status: 401 });
-  }
-}
-
 export async function POST(request: Request) {
   try {
-    const staff = await requireAdminAccess();
     const body = await request.json().catch(() => ({}));
     const token = extractToken(typeof body?.token === "string" ? body.token.trim() : "");
     if (!token) return NextResponse.json({ error: "Invalid QR code." }, { status: 400 });
@@ -42,7 +31,7 @@ export async function POST(request: Request) {
 
     if (error) return NextResponse.json({ error: "Unable to check in reservation." }, { status: 500 });
     if (!booking) return NextResponse.json({ error: "Reservation could not be found." }, { status: 404 });
-    if (booking.checked_in) return NextResponse.json({ error: "This booking has already been checked in.", booking }, { status: 409 });
+    if (booking.checked_in) return NextResponse.json({ error: "ALREADY CHECKED IN. This reservation has already been used for entry.", booking }, { status: 409 });
 
     if (!CONFIRMED_PAYMENT_STATUSES.includes(String(booking.payment_status ?? "").toLowerCase())) {
       return NextResponse.json({ error: "Payment has not been confirmed by Chamlija staff. Entry is not available until payment is approved.", booking }, { status: 403 });
@@ -56,17 +45,17 @@ export async function POST(request: Request) {
 
     const { data: updated, error: updateError } = await supabaseAdmin
       .from("bookings")
-      .update({ checked_in: true, checked_in_at: new Date().toISOString(), checked_in_by: staff.email })
+      .update({ checked_in: true, checked_in_at: new Date().toISOString(), checked_in_by: "Gate staff" })
       .eq("id", booking.id)
       .eq("checked_in", false)
       .select("id, reservation_code, checked_in, checked_in_at")
       .maybeSingle();
 
     if (updateError) return NextResponse.json({ error: "Unable to complete check-in." }, { status: 500 });
-    if (!updated) return NextResponse.json({ error: "This booking has already been checked in." }, { status: 409 });
+    if (!updated) return NextResponse.json({ error: "ALREADY CHECKED IN. This reservation has already been used for entry." }, { status: 409 });
 
-    return NextResponse.json({ success: true, booking: updated });
+    return NextResponse.json({ success: true, message: "CHECK-IN SUCCESSFUL", booking: updated });
   } catch {
-    return NextResponse.json({ error: "Gate staff access is required." }, { status: 403 });
+    return NextResponse.json({ error: "Unable to complete check-in." }, { status: 500 });
   }
 }

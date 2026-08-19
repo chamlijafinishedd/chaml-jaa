@@ -213,18 +213,29 @@ function PaymentContent() {
                   />
                 </>
               ) : showCompletionScreen ? (
-                <div className="mx-auto max-w-xl rounded-[2rem] border border-emerald-200 bg-emerald-50 p-8 text-center shadow-[0_20px_45px_rgba(16,185,129,0.12)]">
+                <div className="mx-auto max-w-xl rounded-[2rem] border border-emerald-200 bg-emerald-50 p-5 shadow-[0_20px_45px_rgba(16,185,129,0.12)] sm:p-8">
                   <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-600 text-3xl font-black text-white">✓</div>
-                  <h2 className="mt-5 text-3xl font-black tracking-tight text-emerald-950">Booking Completed</h2>
-                  <p className="mx-auto mt-3 max-w-md text-base leading-7 text-emerald-900/80">Your booking has been received successfully. You will return to the home page shortly.</p>
+                  <h2 className="mt-5 text-3xl font-black tracking-tight text-emerald-950">CHAMLIJA RESERVATION</h2>
+                  <p className="mt-3 text-base leading-7 text-emerald-900/80">Your reservation details are below. Keep this information and your QR code available for arrival.</p>
+                  <div className="mt-6 grid gap-3 text-left sm:grid-cols-2">
+                    <div className="rounded-2xl border border-emerald-200 bg-white p-4 sm:col-span-2"><div className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Reservation Reference</div><div className="mt-2 break-words font-mono text-xl font-black text-slate-900">{state.booking.reservation_code || state.booking.id}</div></div>
+                    <div className="rounded-2xl border border-emerald-200 bg-white p-4"><div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Date</div><div className="mt-1 font-bold text-slate-900">{state.booking.booking_date || "—"}</div></div>
+                    <div className="rounded-2xl border border-emerald-200 bg-white p-4"><div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Arrival</div><div className="mt-1 font-bold text-slate-900">{state.booking.booking_time || "—"}</div></div>
+                    <div className="rounded-2xl border border-emerald-200 bg-white p-4"><div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Guests</div><div className="mt-1 font-bold text-slate-900">{Number(state.booking.adults ?? 0) + Number(state.booking.children_3_plus ?? 0) + Number(state.booking.children_under_3 ?? 0)}</div></div>
+                    <div className="rounded-2xl border border-emerald-200 bg-white p-4"><div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Total</div><div className="mt-1 font-bold text-slate-900">{totalFormatter.format(Number(state.booking.total_price ?? 0))}</div></div>
+                  </div>
+                  <div className="mt-4 grid gap-3 text-left sm:grid-cols-2">
+                    <div className={`rounded-2xl border p-4 ${currentPaymentState?.code === "rejected" ? "border-rose-200 bg-rose-50" : currentPaymentState?.code === "verified" ? "border-emerald-200 bg-emerald-50" : "border-amber-200 bg-amber-50"}`}><div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Payment</div><div className="mt-1 font-black text-slate-900">{currentPaymentState?.code === "verified" ? "PAYMENT CONFIRMED" : currentPaymentState?.code === "rejected" ? "REJECTED" : "PENDING"}</div></div>
+                    <div className={`rounded-2xl border p-4 ${state.booking.booking_status === "confirmed" ? "border-emerald-200 bg-emerald-50" : "border-amber-200 bg-amber-50"}`}><div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Booking</div><div className="mt-1 font-black text-slate-900">{state.booking.booking_status === "confirmed" ? "CONFIRMED" : "PENDING"}</div></div>
+                  </div>
+                  {currentPaymentState?.code === "rejected" && <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-left text-sm leading-6 text-rose-900"><div className="font-black">Payment rejected</div><p className="mt-1">{state.booking.payment_rejection_reason || "Please upload a new receipt or contact Chamlija staff."}</p></div>}
+                  {currentPaymentState?.code !== "verified" && currentPaymentState?.code !== "rejected" && <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-left text-sm font-semibold leading-6 text-amber-900">Entry is not available until Chamlija staff approve your payment.</div>}
                   <div className="mt-6 rounded-2xl border border-emerald-200 bg-white p-4">
-                    <div className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Reservation reference</div>
-                    <div className="mt-2 break-words font-mono text-xl font-black text-slate-900">{state.booking.reservation_code || state.booking.id}</div>
+                    <CheckInQr token={state.booking.check_in_token} paymentStatus={state.booking.payment_status} />
                   </div>
                   <Link href="/" className="mt-6 inline-flex min-h-11 items-center justify-center rounded-full bg-emerald-700 px-6 py-3 text-sm font-semibold text-white shadow-[0_14px_28px_rgba(4,120,87,0.18)] transition hover:bg-emerald-800">
                     ← Back to Home
                   </Link>
-                  <CheckInQr token={state.booking.check_in_token} paymentStatus={state.booking.payment_status} />
                 </div>
               ) : state.selectedMethod === "bank_transfer" && state.confirming ? (
                 <div className="rounded-[2rem] border border-emerald-200 bg-emerald-50 p-6 text-center">

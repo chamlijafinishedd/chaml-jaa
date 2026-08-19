@@ -713,7 +713,7 @@ export default async function AdminDashboardPage({
     ? (
         await supabaseAdmin
           .from("payments")
-          .select("id, amount, refund_amount, status, provider, receipt_url, receipt_file_name, review_status, reviewed_at, review_note")
+          .select("id, amount, refund_amount, status, provider, receipt_url, receipt_file_name, review_status, reviewed_at, review_note, rejection_reason, verified_by, verified_at")
           .eq("booking_id", selectedBookingWithDiscount.id)
           .eq("provider", "manual")
           .order("receipt_url", { ascending: false, nullsFirst: false })
@@ -1167,6 +1167,10 @@ export default async function AdminDashboardPage({
                     <div><span className="text-slate-500">Paid:</span> <span className="font-medium text-slate-900">{selectedPayment?.amount ? formatMoney(Number(selectedPayment.amount)) : "Not available"}</span></div>
                     <div><span className="text-slate-500">Outstanding:</span> <span className="font-medium text-slate-900">{outstandingBalance !== null ? formatMoney(outstandingBalance) : "Not available"}</span></div>
                     <div><span className="text-slate-500">Status:</span> <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold ${getPaymentStatusClasses(selectedBookingWithDiscount.payment_status)}`}>{formatDisplayStatusLabel(selectedBookingWithDiscount.payment_status)}</span></div>
+                    <div><span className="text-slate-500">Review:</span> <span className="font-medium text-slate-900">{formatDisplayStatusLabel(selectedPayment?.review_status)}</span></div>
+                    {selectedPayment?.rejection_reason && <div className="sm:col-span-2"><span className="text-slate-500">Rejection reason:</span> <span className="font-medium text-rose-800">{selectedPayment.rejection_reason}</span></div>}
+                    {selectedPayment?.reviewed_at && <div><span className="text-slate-500">Reviewed:</span> <span className="font-medium text-slate-900">{formatCreatedAt(selectedPayment.reviewed_at)}</span></div>}
+                    {selectedPayment?.verified_by && <div><span className="text-slate-500">Reviewed by:</span> <span className="font-medium text-slate-900">{selectedPayment.verified_by}</span></div>}
                   </div>
                 </div>
               </div>
@@ -1239,14 +1243,21 @@ export default async function AdminDashboardPage({
                 )}
 
                 {pendingBankTransferBooking && (
-                  <button
-                    type="button"
-                    data-confirm-payment-button="true"
-                    data-booking-id={selectedBookingWithDiscount.id}
-                    className="inline-flex items-center justify-center rounded-full bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-400"
-                  >
-                    Confirm Payment
-                  </button>
+                  <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+                    <button
+                      type="button"
+                      data-confirm-payment-button="true"
+                      data-booking-id={selectedBookingWithDiscount.id}
+                      className="inline-flex min-h-11 items-center justify-center rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-400"
+                    >
+                      Approve Payment
+                    </button>
+                    <form action={`/api/admin/bookings/${selectedBookingWithDiscount.id}/payment/review`} method="POST" className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+                      <input type="hidden" name="action" value="reject" />
+                      <input name="rejectionReason" required placeholder="Rejection reason" className="min-h-11 min-w-0 rounded-xl border border-rose-200 bg-rose-50 px-3 text-sm text-slate-900 placeholder:text-rose-400" />
+                      <button type="submit" className="inline-flex min-h-11 items-center justify-center rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-rose-700">Reject Payment</button>
+                    </form>
+                  </div>
                 )}
 
                 <form action={`/api/admin/bookings/${selectedBookingWithDiscount.id}/cancel`} method="POST" className="flex items-center gap-2">

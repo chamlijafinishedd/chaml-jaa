@@ -31,10 +31,23 @@ export async function GET(request: Request, { params }: { params: Promise<{ book
       return NextResponse.json({ error: "Booking not found" }, { status: 404 });
     }
 
+    const { data: payment } = await supabaseAdmin
+      .from("payments")
+      .select("status, review_status, rejection_reason")
+      .eq("booking_id", bookingId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
     // Only allow access to own booking or admin users
     // For now, just return the booking - in production, verify user ownership or admin status
 
-    return NextResponse.json(booking);
+    return NextResponse.json({
+      ...booking,
+      payment_review_status: payment?.review_status ?? null,
+      payment_rejection_reason: payment?.rejection_reason ?? null,
+      payment_record_status: payment?.status ?? null,
+    });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Internal server error" }, { status: 500 });
   }

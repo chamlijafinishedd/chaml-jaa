@@ -63,6 +63,9 @@ export type BookingPaymentSummary = {
   verification_status?: string | null;
   review_note?: string | null;
   rejection_reason?: string | null;
+  payment_review_status?: string | null;
+  payment_rejection_reason?: string | null;
+  payment_record_status?: string | null;
   verified_by?: string | null;
   verified_at?: string | null;
 };

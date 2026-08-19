@@ -28,7 +28,7 @@ export async function POST(
   { params }: { params: Promise<{ bookingId: string }> },
 ) {
   try {
-    await requireAdminAccess();
+    const adminSession = await requireAdminAccess();
 
     const { bookingId } = await params;
     const formData = await request.formData();
@@ -73,6 +73,10 @@ export async function POST(
     const auditNote = adminNote || payment?.review_note || "Reviewed by admin.";
 
     if (action === "approve") {
+      if (payment?.status === "paid" && payment.review_status === "approved") {
+        return NextResponse.json({ error: "This payment has already been approved." }, { status: 409 });
+      }
+
       const { data: updatedBooking, error: bookingUpdateError } = await supabaseAdmin
         .from("bookings")
         .update({
@@ -97,7 +101,7 @@ export async function POST(
         reviewed_at: new Date().toISOString(),
         review_note: auditNote,
         rejection_reason: null,
-        verified_by: adminUser?.id ?? null,
+        verified_by: adminSession.email,
         verified_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
@@ -129,32 +133,49 @@ export async function POST(
     }
 
     if (action === "reject") {
-      const finalReason = rejectionReason || "Invalid receipt";
-      const { error: paymentError } = await supabaseAdmin
+      if (!rejectionReason) {
+        return NextResponse.json({ error: "A rejection reason is required." }, { status: 400 });
+      }
+      if (payment?.status === "rejected" && payment.review_status === "rejected") {
+        return NextResponse.json({ error: "This payment has already been rejected." }, { status: 409 });
+      }
+
+      const { data: updatedPayment, error: paymentError } = payment
+        ? await supabaseAdmin
         .from("payments")
         .update({
           status: "rejected",
           review_status: "rejected",
           reviewed_at: new Date().toISOString(),
           review_note: auditNote,
-          rejection_reason: finalReason,
+          rejection_reason: rejectionReason,
+          verified_by: adminSession.email,
+          verified_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         })
-        .eq("booking_id", bookingId)
-        .eq("provider", "manual");
+        .eq("id", payment.id)
+        .select("id, status, review_status, rejection_reason")
+        .maybeSingle()
+        : { data: null, error: new Error("Manual payment record not found.") };
 
-      if (paymentError) {
-        return NextResponse.json({ error: paymentError.message }, { status: 500 });
+      if (paymentError || !updatedPayment) {
+        return NextResponse.json({ error: paymentError?.message ?? "Payment rejection was not persisted." }, { status: 500 });
       }
 
-      await supabaseAdmin
+      const { data: updatedBooking, error: bookingError } = await supabaseAdmin
         .from("bookings")
         .update({
           payment_status: "rejected",
           booking_status: "pending",
           updated_at: new Date().toISOString(),
         })
-        .eq("id", bookingId);
+        .eq("id", bookingId)
+        .select("id, payment_status, booking_status")
+        .maybeSingle();
+
+      if (bookingError || !updatedBooking) {
+        return NextResponse.json({ error: bookingError?.message ?? "Booking rejection was not persisted." }, { status: 500 });
+      }
 
       await supabaseAdmin.from("payment_audit_logs").insert({
         payment_id: payment?.id ?? null,
@@ -163,10 +184,10 @@ export async function POST(
         previous_status: previousStatus,
         new_status: "rejected",
         admin_note: auditNote,
-        rejection_reason: finalReason,
+        rejection_reason: rejectionReason,
       });
 
-      return NextResponse.json({ ok: true, bookingId, action: "reject" });
+      return NextResponse.json({ ok: true, bookingId, action: "reject", rejectionReason });
     }
 
     if (action === "resubmit") {
