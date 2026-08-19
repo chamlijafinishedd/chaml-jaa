@@ -12,8 +12,7 @@ export function CheckInQr({ token, paymentStatus }: CheckInQrProps) {
   const qrCodeRef = useRef<HTMLDivElement>(null);
   if (!token) return null;
 
-  const publicSiteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://part8-chamlija.vercel.app").replace(/\/$/, "");
-  const checkInUrl = `${publicSiteUrl}/gate/check-in?token=${encodeURIComponent(token)}`;
+  const checkInUrl = `https://part8-chamlija.vercel.app/gate/check-in?token=${encodeURIComponent(token)}`;
   const normalizedPaymentStatus = String(paymentStatus ?? "pending").trim().toLowerCase();
   const paymentConfirmed = ["paid", "verified"].includes(normalizedPaymentStatus);
 
