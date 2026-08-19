@@ -749,7 +749,8 @@ export default async function AdminDashboardPage({
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-700">Admin dashboard</p>
-            <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-900">Booking management</h1>
+            <h1 className="mt-2 hidden text-3xl font-black tracking-tight text-slate-900 md:block">Booking management</h1>
+            <h1 className="mt-2 text-2xl font-black tracking-tight text-slate-900 md:hidden">Bookings <span className="text-emerald-700">({bookingCount ?? 0})</span></h1>
           </div>
         </div>
 
@@ -813,7 +814,7 @@ export default async function AdminDashboardPage({
         <ReservationCalendar bookings={calendarBookings} initialMonth={today.slice(0, 7)} />
 
         <div className="rounded-[2rem] border border-slate-200 bg-white p-4 shadow-[0_15px_35px_rgba(15,23,42,0.03)] sm:p-5">
-          <div className="mb-4 flex flex-wrap gap-2">
+          <div className="mb-4 flex gap-2 overflow-x-auto px-1 pb-1 md:flex-wrap md:overflow-visible">
             {[
               { value: "all", label: "All" },
               { value: "bank_transfer", label: "Bank Transfer" },
@@ -850,7 +851,7 @@ export default async function AdminDashboardPage({
             })}
           </div>
 
-          <form method="GET" action="/admin" className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-7">
+          <form method="GET" action="/admin" className="hidden min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-7 md:grid">
             <input type="hidden" name="filter" value={activeFilter} />
             <input type="hidden" name="page" value="1" />
             {selectedBookingId && <input type="hidden" name="bookingId" value={selectedBookingId} />}
@@ -953,6 +954,33 @@ export default async function AdminDashboardPage({
               </a>
             </div>
           </form>
+
+          <div className="md:hidden">
+            <form method="GET" action="/admin" className="space-y-3">
+              <input type="hidden" name="filter" value={activeFilter} />
+              <input type="hidden" name="page" value="1" />
+              {selectedBookingId && <input type="hidden" name="bookingId" value={selectedBookingId} />}
+              <label className="block">
+                <span className="sr-only">Search bookings</span>
+                <input type="search" name="search" defaultValue={searchQuery} placeholder="Search name, email or booking reference..." className="min-h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-base text-slate-900 outline-none transition focus:border-emerald-500 focus:bg-white" />
+              </label>
+              <div className="flex items-center gap-2">
+                <details className="min-w-0 flex-1">
+                  <summary className="flex min-h-11 cursor-pointer list-none items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-bold text-slate-800">FILTERS</summary>
+                  <div className="mt-3 space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <label className="block"><span className="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Date</span><input type="date" name="date" defaultValue={selectedDate} className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm" /></label>
+                    <label className="block"><span className="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Area</span><select name="areaId" defaultValue={selectedAreaId} className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"><option value="">All areas</option>{(rescheduleAreas ?? []).map((area) => <option key={area.id} value={area.id}>{area.name}</option>)}</select></label>
+                    <label className="block"><span className="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Booking Status</span><select name="bookingStatus" defaultValue={selectedBookingStatus} className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"><option value="">All</option><option value="pending">Pending</option><option value="confirmed">Confirmed</option><option value="cancelled">Cancelled</option><option value="completed">Completed</option></select></label>
+                    <label className="block"><span className="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Payment Status</span><select name="paymentStatus" defaultValue={selectedPaymentStatus} className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"><option value="">All</option><option value="pending">Pending</option><option value="paid">Paid</option><option value="refund_pending">Refund Pending</option><option value="refunded">Refunded</option></select></label>
+                    <label className="block"><span className="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Payment Method</span><select name="paymentMethod" defaultValue={selectedPaymentMethod} className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"><option value="">All</option><option value="bank_transfer">Bank Transfer</option><option value="ikhokha">iKhokha</option><option value="manual">Manual</option><option value="cash_at_gate">Cash at Gate</option></select></label>
+                    <button type="submit" className="min-h-11 w-full rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white">APPLY FILTERS</button>
+                    <a href={buildAdminUrl({ bookingId: selectedBookingId, filter: activeFilter })} className="inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-bold text-slate-700">CLEAR FILTERS</a>
+                  </div>
+                </details>
+                <label className="shrink-0"><span className="sr-only">Bookings per page</span><select name="pageSize" defaultValue={String(pageSize)} className="min-h-11 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-semibold"><option value="25">25</option><option value="50">50</option><option value="100">100</option></select></label>
+              </div>
+            </form>
+          </div>
         </div>
 
         <div className="hidden overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-[0_18px_45px_rgba(15,23,42,0.05)] md:block">
@@ -1060,7 +1088,8 @@ export default async function AdminDashboardPage({
                     <a href={buildAdminUrl({ customerEmail: booking.email, filter: activeFilter, search: searchQuery, date: selectedDate, bookingStatus: selectedBookingStatus, paymentStatus: selectedPaymentStatus, paymentMethod: selectedPaymentMethod })} className="block truncate text-base font-bold text-emerald-800 hover:text-emerald-950" title="View customer history">{booking.customer_name || "Unknown"}</a>
                     <div className="mt-1 truncate text-xs text-slate-500" title={booking.email || "No email"}>{booking.email || "No email"}</div>
                   </div>
-                  <div className="shrink-0 text-right">
+                  <div className="flex shrink-0 flex-col items-end gap-2 text-right">
+                    <a href={buildAdminUrl({ bookingId: booking.id, filter: activeFilter, search: searchQuery, date: selectedDate, bookingStatus: selectedBookingStatus, paymentStatus: selectedPaymentStatus, paymentMethod: selectedPaymentMethod, pageSize: String(pageSize), page: String(currentPage) })} className="inline-flex min-h-11 items-center justify-center rounded-xl bg-emerald-700 px-3 py-2 text-xs font-black uppercase tracking-wide text-white">VIEW DETAILS</a>
                     <div className="text-xs font-semibold text-slate-500">Reference</div>
                     <div className="mt-1 max-w-28 truncate text-sm font-bold text-slate-900" title={booking.reservation_code || booking.id}>{formatShortReference(booking.reservation_code || booking.id)}</div>
                   </div>
@@ -1079,13 +1108,8 @@ export default async function AdminDashboardPage({
                   <span className={`max-w-full truncate rounded-full border px-2.5 py-1 text-[11px] font-semibold ${getPaymentStatusClasses(booking.payment_status)}`}>{formatPaymentStatus(booking.payment_status)}</span>
                   <span className={`max-w-full truncate rounded-full border px-2.5 py-1 text-[11px] font-semibold ${getBookingStatusClasses(booking.booking_status)}`}>{formatBookingStatus(booking.booking_status)}</span>
                   <span className="max-w-full truncate rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-600">{formatPaymentMethod(booking.payment_method)}</span>
+                  {booking.checked_in && <span className="max-w-full truncate rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-700">✓ Checked in</span>}
                 </div>
-                <a
-                  href={buildAdminUrl({ bookingId: booking.id, filter: activeFilter, search: searchQuery, date: selectedDate, bookingStatus: selectedBookingStatus, paymentStatus: selectedPaymentStatus, paymentMethod: selectedPaymentMethod })}
-                  className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
-                >
-                  View details
-                </a>
               </article>
             );
           })}
@@ -1093,10 +1117,10 @@ export default async function AdminDashboardPage({
 
         {totalPages > 1 && (
           <nav className="flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm shadow-sm" aria-label="Reservation pages">
-            <span className="text-slate-500">Page {currentPage} of {totalPages} · {bookingCount ?? 0} reservations</span>
+            <span className="text-slate-500"><span className="md:hidden">Showing {items.length} of {bookingCount ?? 0} bookings · </span>Page {currentPage} of {totalPages}<span className="hidden md:inline"> · {bookingCount ?? 0} reservations</span></span>
             <div className="flex min-w-0 gap-2">
-              {currentPage > 1 && <a href={buildAdminUrl({ filter: activeFilter, search: searchQuery, date: selectedDate, bookingStatus: selectedBookingStatus, paymentStatus: selectedPaymentStatus, paymentMethod: selectedPaymentMethod, areaId: selectedAreaId, page: String(currentPage - 1), calendarMonth })} className="rounded-xl border border-slate-200 px-3 py-2 font-semibold text-slate-700 hover:bg-slate-50">Previous</a>}
-              {currentPage < totalPages && <a href={buildAdminUrl({ filter: activeFilter, search: searchQuery, date: selectedDate, bookingStatus: selectedBookingStatus, paymentStatus: selectedPaymentStatus, paymentMethod: selectedPaymentMethod, areaId: selectedAreaId, page: String(currentPage + 1), calendarMonth })} className="rounded-xl border border-slate-200 px-3 py-2 font-semibold text-slate-700 hover:bg-slate-50">Next</a>}
+              {currentPage > 1 && <a href={buildAdminUrl({ filter: activeFilter, search: searchQuery, date: selectedDate, bookingStatus: selectedBookingStatus, paymentStatus: selectedPaymentStatus, paymentMethod: selectedPaymentMethod, areaId: selectedAreaId, page: String(currentPage - 1), pageSize: String(pageSize), calendarMonth })} className="inline-flex min-h-11 items-center rounded-xl border border-slate-200 px-3 py-2 font-semibold text-slate-700 hover:bg-slate-50"><span className="md:hidden">← Previous</span><span className="hidden md:inline">Previous</span></a>}
+              {currentPage < totalPages && <a href={buildAdminUrl({ filter: activeFilter, search: searchQuery, date: selectedDate, bookingStatus: selectedBookingStatus, paymentStatus: selectedPaymentStatus, paymentMethod: selectedPaymentMethod, areaId: selectedAreaId, page: String(currentPage + 1), pageSize: String(pageSize), calendarMonth })} className="inline-flex min-h-11 items-center rounded-xl border border-slate-200 px-3 py-2 font-semibold text-slate-700 hover:bg-slate-50"><span className="md:hidden">Next →</span><span className="hidden md:inline">Next</span></a>}
             </div>
           </nav>
         )}
@@ -1266,7 +1290,7 @@ export default async function AdminDashboardPage({
                     >
                       Approve Payment
                     </button>
-                    <form action={`/api/admin/bookings/${selectedBookingWithDiscount.id}/payment/review`} method="POST" className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+                    <form action={`/api/admin/bookings/${selectedBookingWithDiscount.id}/payment/review`} method="POST" data-payment-rejection-form="true" className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
                       <input type="hidden" name="action" value="reject" />
                       <input name="rejectionReason" required placeholder="Rejection reason" className="min-h-11 min-w-0 rounded-xl border border-rose-200 bg-rose-50 px-3 text-sm text-slate-900 placeholder:text-rose-400" />
                       <button type="submit" className="inline-flex min-h-11 items-center justify-center rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-rose-700">Reject Payment</button>
@@ -1404,12 +1428,16 @@ export default async function AdminDashboardPage({
                       }
 
                       if (paymentNotice) {
-                        paymentNotice.textContent = 'Payment confirmed successfully.';
+                        paymentNotice.textContent = responseJson?.emailSent === false
+                          ? 'Payment approved, but confirmation email could not be sent.'
+                          : 'Payment approved successfully. Confirmation email sent.';
                         paymentNotice.hidden = false;
                         paymentNotice.className = 'mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700';
                       }
 
-                      const successText = 'Payment confirmed successfully.';
+                      const successText = responseJson?.emailSent === false
+                        ? 'Payment approved, but confirmation email could not be sent.'
+                        : 'Payment approved successfully. Confirmation email sent.';
                       console.log(successText);
                       target.textContent = successText;
                       target.disabled = true;
@@ -1427,6 +1455,43 @@ export default async function AdminDashboardPage({
 
                       target.textContent = originalText;
                       target.disabled = false;
+                    }
+                  });
+
+                  document.addEventListener('submit', async (event) => {
+                    const form = event.target instanceof HTMLFormElement ? event.target.closest('[data-payment-rejection-form="true"]') : null;
+                    if (!form) return;
+
+                    event.preventDefault();
+                    const button = form.querySelector('button[type="submit"]');
+                    const rejectionNotice = document.getElementById('payment-confirmation-message');
+                    if (button instanceof HTMLButtonElement) {
+                      button.disabled = true;
+                      button.textContent = 'Rejecting payment...';
+                    }
+
+                    try {
+                      const response = await fetch(form.action, { method: 'POST', body: new FormData(form) });
+                      const responseJson = await response.json().catch(() => ({}));
+                      if (!response.ok) throw new Error(responseJson?.error || 'Payment rejection failed.');
+                      if (rejectionNotice) {
+                        rejectionNotice.textContent = responseJson?.emailSent === false
+                          ? 'Payment rejected, but rejection email could not be sent.'
+                          : 'Payment rejected. Rejection email sent.';
+                        rejectionNotice.hidden = false;
+                        rejectionNotice.className = 'mt-4 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700';
+                      }
+                      if (button instanceof HTMLButtonElement) button.textContent = 'Payment rejected';
+                    } catch (error) {
+                      if (rejectionNotice) {
+                        rejectionNotice.textContent = error instanceof Error ? error.message : 'Payment rejection failed.';
+                        rejectionNotice.hidden = false;
+                        rejectionNotice.className = 'mt-4 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700';
+                      }
+                      if (button instanceof HTMLButtonElement) {
+                        button.disabled = false;
+                        button.textContent = 'Reject Payment';
+                      }
                     }
                   });
 

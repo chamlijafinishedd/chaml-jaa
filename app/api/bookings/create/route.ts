@@ -5,6 +5,7 @@ import { calculateBookingPriceBreakdown, parseSelectedEquipmentQuantities } from
 import { validateAreaCapacity, getAreaCapacity } from "@/lib/business-rules/areas";
 import { getSupabaseAdminClient } from "@/lib/supabase/server";
 import { setBookingAccessCookie } from "@/lib/auth/booking-access";
+import { sendReservationReceivedEmail } from "@/lib/email/chamlija-email";
 
 const AREA_SLOT_CONFLICT_MESSAGE = "This area is already booked for this date and time. Please choose another area or time.";
 
@@ -265,6 +266,24 @@ export async function POST(request: Request) {
     if (data?.id) {
       await setBookingAccessCookie(response, data.id);
     }
+
+    const emailResult = await sendReservationReceivedEmail({
+      email,
+      customerName: fullName,
+      reservationCode: data?.reservation_code ?? reservationCode,
+      bookingDate,
+      bookingTime,
+      guests: adults + children3Plus + childrenUnder3,
+      total: finalTotal,
+      paymentMethod: "Awaiting selection",
+      paymentStatus: "Pending",
+      bookingStatus: "Pending",
+      checkInToken: payload.check_in_token,
+    });
+    if (!emailResult.sent && emailResult.warning) {
+      console.warn("Reservation received email was not sent:", emailResult.warning);
+    }
+
     return response;
   } catch (error) {
     return NextResponse.json(

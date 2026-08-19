@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/server";
 import { requireAdminAccess } from "@/lib/auth/admin";
+import { sendPaymentConfirmedEmail, sendPaymentRejectedEmail } from "@/lib/email/chamlija-email";
 
 function normalizePaymentMethod(value: string | null | undefined) {
   return String(value ?? "").trim().toLowerCase().replace(/[-\s]+/g, "_");
@@ -43,7 +44,7 @@ export async function POST(
     const supabaseAdmin = getSupabaseAdminClient();
     const { data: booking, error: bookingError } = await supabaseAdmin
       .from("bookings")
-      .select("id, payment_method, payment_status, booking_status, total_price")
+      .select("id, customer_name, email, reservation_code, booking_date, booking_time, adults, children_3_plus, children_under_3, check_in_token, payment_method, payment_status, booking_status, total_price")
       .eq("id", bookingId)
       .maybeSingle();
 
@@ -123,12 +124,29 @@ export async function POST(
         rejection_reason: null,
       });
 
+      const emailResult = await sendPaymentConfirmedEmail({
+        email: booking.email,
+        customerName: booking.customer_name,
+        reservationCode: booking.reservation_code,
+        bookingDate: booking.booking_date,
+        bookingTime: booking.booking_time,
+        guests: Number(booking.adults ?? 0) + Number(booking.children_3_plus ?? 0) + Number(booking.children_under_3 ?? 0),
+        total: booking.total_price,
+        paymentMethod: booking.payment_method,
+        paymentStatus: "Paid",
+        bookingStatus: "Confirmed",
+        checkInToken: booking.check_in_token,
+      });
+      if (!emailResult.sent && emailResult.warning) console.warn("Payment confirmation email was not sent:", emailResult.warning);
+
       return NextResponse.json({
         ok: true,
         bookingId,
         paymentStatus: "paid",
         bookingStatus: "confirmed",
         reviewStatus: "approved",
+        emailSent: emailResult.sent,
+        emailWarning: emailResult.warning ?? null,
       });
     }
 
@@ -187,7 +205,22 @@ export async function POST(
         rejection_reason: rejectionReason,
       });
 
-      return NextResponse.json({ ok: true, bookingId, action: "reject", rejectionReason });
+      const emailResult = await sendPaymentRejectedEmail({
+        email: booking.email,
+        customerName: booking.customer_name,
+        reservationCode: booking.reservation_code,
+        bookingDate: booking.booking_date,
+        bookingTime: booking.booking_time,
+        guests: Number(booking.adults ?? 0) + Number(booking.children_3_plus ?? 0) + Number(booking.children_under_3 ?? 0),
+        total: booking.total_price,
+        paymentMethod: booking.payment_method,
+        paymentStatus: "Rejected",
+        bookingStatus: "Pending",
+        rejectionReason: rejectionReason,
+      });
+      if (!emailResult.sent && emailResult.warning) console.warn("Payment rejection email was not sent:", emailResult.warning);
+
+      return NextResponse.json({ ok: true, bookingId, action: "reject", rejectionReason, emailSent: emailResult.sent, emailWarning: emailResult.warning ?? null });
     }
 
     if (action === "resubmit") {
