@@ -241,6 +241,7 @@ export async function POST(request: Request) {
       additional_total: finalBreakdown.additionalTotal,
       total_price: finalTotal,
       reservation_code: reservationCode,
+      check_in_token: randomUUID() + randomUUID(),
       booking_status: "pending",
       payment_status: "pending",
       notes: customerNotes,

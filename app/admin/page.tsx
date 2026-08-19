@@ -518,7 +518,7 @@ export default async function AdminDashboardPage({
   const supabaseAdmin = getSupabaseAdminClient();
   let bookingQuery = supabaseAdmin
     .from("bookings")
-    .select("id, reservation_code, customer_name, email, phone_number, booking_date, booking_time, selected_area_id, total_price, booking_status, payment_status, payment_method, selected_equipment_ids, notes, adults, children_3_plus, children_under_3, created_at", { count: "exact" })
+    .select("id, reservation_code, customer_name, email, phone_number, booking_date, booking_time, selected_area_id, total_price, booking_status, payment_status, payment_method, selected_equipment_ids, notes, adults, children_3_plus, children_under_3, checked_in, checked_in_at, checked_in_by, created_at", { count: "exact" })
     .order("created_at", { ascending: false, nullsFirst: false })
     .order("booking_date", { ascending: false, nullsFirst: false })
     .order("booking_time", { ascending: false, nullsFirst: false })
@@ -556,7 +556,7 @@ export default async function AdminDashboardPage({
   const items = bookings ?? [];
   const totalPages = Math.max(Math.ceil((bookingCount ?? 0) / ADMIN_PAGE_SIZE), 1);
   const selectedBookingOutsidePage = selectedBookingId && !items.some((booking) => booking.id === selectedBookingId)
-    ? (await supabaseAdmin.from("bookings").select("id, reservation_code, customer_name, email, phone_number, booking_date, booking_time, selected_area_id, total_price, booking_status, payment_status, payment_method, selected_equipment_ids, notes, adults, children_3_plus, children_under_3, created_at").eq("id", selectedBookingId).maybeSingle()).data
+    ? (await supabaseAdmin.from("bookings").select("id, reservation_code, customer_name, email, phone_number, booking_date, booking_time, selected_area_id, total_price, booking_status, payment_status, payment_method, selected_equipment_ids, notes, adults, children_3_plus, children_under_3, checked_in, checked_in_at, checked_in_by, created_at").eq("id", selectedBookingId).maybeSingle()).data
     : null;
   const lookupItems = selectedBookingOutsidePage ? [...items, selectedBookingOutsidePage] : items;
   const areaIds = [...new Set(lookupItems.map((booking) => booking.selected_area_id).filter((value): value is string => typeof value === "string" && value.trim().length > 0))];
@@ -1205,6 +1205,11 @@ export default async function AdminDashboardPage({
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                 <div className="text-sm font-semibold text-slate-900">Notes / Special Requirements</div>
                 <p className="mt-3 text-sm leading-6 text-slate-700">{selectedBookingWithDiscount.notes || "No extra notes."}</p>
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm">
+                <div className="text-sm font-semibold text-slate-900">Check-in</div>
+                <p className="mt-2 font-medium text-slate-700">{selectedBookingWithDiscount.checked_in ? `✓ Checked in${selectedBookingWithDiscount.checked_in_at ? ` · ${formatCreatedAt(selectedBookingWithDiscount.checked_in_at)}` : ""}` : "Not checked in"}</p>
               </div>
 
               <form action={`/api/admin/bookings/${selectedBookingWithDiscount.id}/reschedule`} method="POST" className="rounded-2xl border border-emerald-100 bg-emerald-50/60 p-4">

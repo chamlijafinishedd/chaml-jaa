@@ -47,6 +47,7 @@ export type BookingPaymentSummary = {
   booking_date: string | null;
   booking_time: string | null;
   reservation_code: string | null;
+  check_in_token?: string | null;
   selected_area_id: string | null;
   selected_equipment_ids: string[] | null;
   selected_paid_activity_id: string | null;
@@ -190,7 +191,7 @@ export async function getBookingPaymentSummary(bookingId: string): Promise<Booki
   const { data, error } = await supabaseAdmin
     .from("bookings")
     .select(
-      "id, total_price, booking_status, payment_status, payment_method, customer_name, email, phone_number, booking_date, booking_time, reservation_code, selected_area_id, selected_equipment_ids, selected_paid_activity_id, selected_tent_area_id, selected_photo_shoot_id, adults, children_3_plus, children_under_3, created_at",
+      "id, total_price, booking_status, payment_status, payment_method, customer_name, email, phone_number, booking_date, booking_time, reservation_code, check_in_token, selected_area_id, selected_equipment_ids, selected_paid_activity_id, selected_tent_area_id, selected_photo_shoot_id, adults, children_3_plus, children_under_3, created_at",
     )
     .eq("id", bookingId)
     .maybeSingle();

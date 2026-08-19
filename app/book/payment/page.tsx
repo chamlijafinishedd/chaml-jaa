@@ -7,6 +7,7 @@ import { BankTransferDisplay } from "@/components/booking/bank-transfer-display"
 import { CashAtGateDisplay } from "@/components/booking/cash-at-gate-display";
 import { PaymentMethodSelector } from "@/components/booking/payment-method-selector";
 import { getBookingPaymentState, type BookingPaymentSummary, type PaymentMethod } from "@/lib/payments/manual";
+import { CheckInQr } from "@/components/booking/check-in-qr";
 
 function PaymentContent() {
   const searchParams = useSearchParams();
@@ -223,6 +224,7 @@ function PaymentContent() {
                   <Link href="/" className="mt-6 inline-flex min-h-11 items-center justify-center rounded-full bg-emerald-700 px-6 py-3 text-sm font-semibold text-white shadow-[0_14px_28px_rgba(4,120,87,0.18)] transition hover:bg-emerald-800">
                     ← Back to Home
                   </Link>
+                  <CheckInQr token={state.booking.check_in_token} paymentStatus={state.booking.payment_status} />
                 </div>
               ) : state.selectedMethod === "bank_transfer" && state.confirming ? (
                 <div className="rounded-[2rem] border border-emerald-200 bg-emerald-50 p-6 text-center">
