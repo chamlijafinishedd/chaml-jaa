@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { requireAdminAccess } from "@/lib/auth/admin";
 import { getSupabaseAdminClient } from "@/lib/supabase/server";
 
+const CONFIRMED_PAYMENT_STATUSES = ["paid", "verified"];
+
 function extractToken(value: string) {
   if (!value.includes("token=")) return value;
   try {
@@ -41,13 +43,15 @@ export async function POST(request: Request) {
     if (error) return NextResponse.json({ error: "Unable to check in reservation." }, { status: 500 });
     if (!booking) return NextResponse.json({ error: "Reservation could not be found." }, { status: 404 });
     if (booking.checked_in) return NextResponse.json({ error: "This booking has already been checked in.", booking }, { status: 409 });
-    if (booking.booking_date !== todayInSouthAfrica()) return NextResponse.json({ error: "This booking is for another date.", booking }, { status: 409 });
 
-    if (String(booking.payment_status ?? "").toLowerCase() !== "paid") {
-      return NextResponse.json({ error: "Payment has not been confirmed.", booking }, { status: 409 });
+    if (!CONFIRMED_PAYMENT_STATUSES.includes(String(booking.payment_status ?? "").toLowerCase())) {
+      return NextResponse.json({ error: "Payment has not been confirmed by Chamlija staff. Entry is not available until payment is approved.", booking }, { status: 403 });
     }
     if (String(booking.booking_status ?? "").toLowerCase() !== "confirmed") {
-      return NextResponse.json({ error: "Booking has not been confirmed.", booking }, { status: 409 });
+      return NextResponse.json({ error: "Booking has not been confirmed.", booking }, { status: 403 });
+    }
+    if (booking.booking_date !== todayInSouthAfrica()) {
+      return NextResponse.json({ error: "This booking is for another date.", booking }, { status: 409 });
     }
 
     const { data: updated, error: updateError } = await supabaseAdmin

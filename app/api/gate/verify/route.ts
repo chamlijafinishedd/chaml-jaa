@@ -1,8 +1,16 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/server";
 
+const CONFIRMED_PAYMENT_STATUSES = ["paid", "verified"];
+
 function todayInSouthAfrica() {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Johannesburg", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+}
+
+function getDateStatus(bookingDate: string | null | undefined, today: string) {
+  if (!bookingDate) return "past";
+  if (bookingDate === today) return "today";
+  return bookingDate > today ? "future" : "past";
 }
 
 export async function POST(request: Request) {
@@ -27,11 +35,19 @@ export async function POST(request: Request) {
       ? await supabaseAdmin.from("products").select("name").eq("id", booking.selected_area_id).maybeSingle()
       : { data: null };
 
+    const today = todayInSouthAfrica();
+    const paymentConfirmed = CONFIRMED_PAYMENT_STATUSES.includes(String(booking.payment_status ?? "").toLowerCase());
+    const bookingConfirmed = String(booking.booking_status ?? "").toLowerCase() === "confirmed";
+    const dateStatus = getDateStatus(booking.booking_date, today);
     const base = {
       booking: { ...booking, area_name: area?.name ?? "No Picnic Area" },
-      paymentConfirmed: String(booking.payment_status ?? "").toLowerCase() === "paid",
-      bookingConfirmed: String(booking.booking_status ?? "").toLowerCase() === "confirmed",
-      isToday: booking.booking_date === todayInSouthAfrica(),
+      paymentConfirmed,
+      paymentError: paymentConfirmed ? null : "Payment has not been confirmed by Chamlija staff. Entry is not available until payment is approved.",
+      bookingConfirmed,
+      isToday: booking.booking_date === today,
+      dateStatus,
+      verificationStatus: !paymentConfirmed ? "PAYMENT NOT CONFIRMED" : !bookingConfirmed ? "BOOKING NOT CONFIRMED" : dateStatus === "today" ? "CHECK-IN APPROVED" : dateStatus === "future" ? "RESERVATION VERIFIED" : "RESERVATION EXPIRED",
+      checkInEligible: paymentConfirmed && bookingConfirmed && dateStatus === "today" && !booking.checked_in,
     };
 
     return NextResponse.json({ success: true, ...base });
