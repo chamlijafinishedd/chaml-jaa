@@ -520,6 +520,8 @@ export default async function AdminDashboardPage({
     .from("bookings")
     .select("id, reservation_code, customer_name, email, phone_number, booking_date, booking_time, selected_area_id, total_price, booking_status, payment_status, payment_method, selected_equipment_ids, notes, adults, children_3_plus, children_under_3, created_at", { count: "exact" })
     .order("created_at", { ascending: false, nullsFirst: false })
+    .order("booking_date", { ascending: false, nullsFirst: false })
+    .order("booking_time", { ascending: false, nullsFirst: false })
     .order("id", { ascending: false });
 
   if (selectedDate) bookingQuery = bookingQuery.eq("booking_date", selectedDate);
@@ -931,10 +933,10 @@ export default async function AdminDashboardPage({
           </form>
         </div>
 
-        <div className="hidden overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-[0_15px_35px_rgba(15,23,42,0.03)] md:block">
+        <div className="hidden overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-[0_18px_45px_rgba(15,23,42,0.05)] md:block">
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-slate-200 text-left text-sm text-slate-700">
-              <thead className="bg-slate-50">
+            <table className="min-w-[1180px] divide-y divide-slate-200 text-left text-sm text-slate-700">
+              <thead className="sticky top-0 z-10 bg-slate-50/95 backdrop-blur">
                 <tr>
                   <th className="px-4 py-3 font-semibold text-slate-700">Booking / Reference</th>
                   <th className="px-4 py-3 font-semibold text-slate-700">Customer</th>
@@ -969,39 +971,39 @@ export default async function AdminDashboardPage({
                   const areaName = booking.selected_area_id ? areaLookup[booking.selected_area_id] || "No Picnic Area" : "No Picnic Area";
 
                   return (
-                    <tr key={booking.id} className="align-top">
-                      <td className="px-4 py-4">
+                    <tr key={booking.id} className={`align-top transition-colors hover:bg-emerald-50/30 ${booking.id === filteredItems[0]?.id ? "bg-emerald-50/45" : ""}`}>
+                      <td className="px-5 py-4">
                         <div className="font-semibold text-slate-900">{formatShortReference(booking.reservation_code || booking.id)}</div>
                         <div className="mt-1 text-xs text-slate-500">{booking.reservation_code ? "Ref" : "ID"}</div>
                       </td>
-                      <td className="px-4 py-4">
+                      <td className="px-5 py-4">
                         <a href={buildAdminUrl({ customerEmail: booking.email, filter: activeFilter, search: searchQuery, date: selectedDate, bookingStatus: selectedBookingStatus, paymentStatus: selectedPaymentStatus, paymentMethod: selectedPaymentMethod })} className="font-semibold text-emerald-800 hover:text-emerald-950">{booking.customer_name || "Unknown"}</a>
                         <div className="mt-1 text-xs text-slate-500">{booking.email || "No email"}</div>
                       </td>
-                      <td className="px-4 py-4">
+                      <td className="px-5 py-4">
                         <div className="font-medium text-slate-900">{formatCreatedAt(booking.created_at)}</div>
                       </td>
-                      <td className="px-4 py-4 text-slate-700">{visitorCounts.adults}</td>
-                      <td className="px-4 py-4 text-slate-700">{visitorCounts.children}</td>
-                      <td className="px-4 py-4 text-slate-700">{visitorCounts.total}</td>
-                      <td className="px-4 py-4 text-slate-700">{areaName}</td>
-                      <td className="px-4 py-4 font-semibold text-slate-900">{formatMoney(booking.total_price)}</td>
-                      <td className="px-4 py-4 font-semibold text-slate-900">{formatMoney(paymentLookup[booking.id]?.validPaid ?? 0)}</td>
-                      <td className="px-4 py-4 font-semibold text-slate-900">{formatMoney(Math.max(Number(booking.total_price ?? 0) - (paymentLookup[booking.id]?.validPaid ?? 0), 0))}</td>
-                      <td className="px-4 py-4">
+                      <td className="px-5 py-4 text-slate-700">{visitorCounts.adults}</td>
+                      <td className="px-5 py-4 text-slate-700">{visitorCounts.children}</td>
+                      <td className="px-5 py-4 text-slate-700">{visitorCounts.total}</td>
+                      <td className="max-w-44 px-5 py-4 text-slate-700"><span className="block truncate" title={areaName}>{areaName}</span></td>
+                      <td className="px-5 py-4 font-semibold text-slate-900">{formatMoney(booking.total_price)}</td>
+                      <td className="px-5 py-4 font-semibold text-slate-900">{formatMoney(paymentLookup[booking.id]?.validPaid ?? 0)}</td>
+                      <td className="px-5 py-4 font-semibold text-slate-900">{formatMoney(Math.max(Number(booking.total_price ?? 0) - (paymentLookup[booking.id]?.validPaid ?? 0), 0))}</td>
+                      <td className="px-5 py-4">
                         <div className="font-medium text-slate-900">{formatPaymentMethod(booking.payment_method)}</div>
                       </td>
-                      <td className="px-4 py-4">
+                      <td className="px-5 py-4">
                         <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold ${getPaymentStatusClasses(booking.payment_status)}`}>
                           {formatPaymentStatus(booking.payment_status)}
                         </span>
                       </td>
-                      <td className="px-4 py-4">
+                      <td className="px-5 py-4">
                         <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold ${getBookingStatusClasses(booking.booking_status)}`}>
                           {formatBookingStatus(booking.booking_status)}
                         </span>
                       </td>
-                      <td className="px-4 py-4">
+                      <td className="px-5 py-4">
                         <a
                           href={buildAdminUrl({
                             bookingId: booking.id,
@@ -1033,15 +1035,15 @@ export default async function AdminDashboardPage({
             </div>
           )}
 
-          {filteredItems.map((booking) => {
+          {filteredItems.map((booking, index) => {
             const visitorCounts = getVisitorCounts(booking);
             const areaName = booking.selected_area_id ? areaLookup[booking.selected_area_id] || "No Picnic Area" : "No Picnic Area";
 
             return (
-              <article key={booking.id} className="min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <article key={booking.id} className={`min-w-0 overflow-hidden rounded-2xl border bg-white p-4 shadow-sm transition-shadow hover:shadow-md ${index === 0 ? "border-emerald-300 ring-1 ring-emerald-100" : "border-slate-200"}`}>
                 <div className="flex min-w-0 items-start justify-between gap-3 border-b border-slate-100 pb-3">
                   <div className="min-w-0">
-                    <a href={buildAdminUrl({ customerEmail: booking.email, filter: activeFilter, search: searchQuery, date: selectedDate, bookingStatus: selectedBookingStatus, paymentStatus: selectedPaymentStatus, paymentMethod: selectedPaymentMethod })} className="block truncate font-bold text-emerald-800 hover:text-emerald-950" title="View customer history">{booking.customer_name || "Unknown"}</a>
+                    <a href={buildAdminUrl({ customerEmail: booking.email, filter: activeFilter, search: searchQuery, date: selectedDate, bookingStatus: selectedBookingStatus, paymentStatus: selectedPaymentStatus, paymentMethod: selectedPaymentMethod })} className="block truncate text-base font-bold text-emerald-800 hover:text-emerald-950" title="View customer history">{booking.customer_name || "Unknown"}</a>
                     <div className="mt-1 truncate text-xs text-slate-500" title={booking.email || "No email"}>{booking.email || "No email"}</div>
                   </div>
                   <div className="shrink-0 text-right">
@@ -1050,7 +1052,7 @@ export default async function AdminDashboardPage({
                   </div>
                 </div>
                 <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
-                  <div className="min-w-0 overflow-hidden"><div className="text-xs text-slate-500">Created</div><div className="mt-1 break-words font-semibold leading-5 text-slate-900">{formatCreatedAt(booking.created_at)}</div></div>
+                  <div className="min-w-0 overflow-hidden"><div className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Created</div><div className="mt-1 break-words font-semibold leading-5 text-slate-900">{formatCreatedAt(booking.created_at)}</div></div>
                   <div className="min-w-0 overflow-hidden"><div className="text-xs text-slate-500">Area</div><div className="mt-1 truncate font-semibold text-slate-900" title={areaName}>{areaName}</div></div>
                   <div><div className="text-xs text-slate-500">Adults</div><div className="mt-1 font-semibold text-slate-900">{visitorCounts.adults}</div></div>
                   <div><div className="text-xs text-slate-500">Children</div><div className="mt-1 font-semibold text-slate-900">{visitorCounts.children}</div></div>
