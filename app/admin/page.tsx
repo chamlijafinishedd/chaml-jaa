@@ -419,6 +419,7 @@ function buildAdminUrl({
   bookingStatus = "",
   paymentStatus = "",
   paymentMethod = "",
+  pageSize = "25",
   customerEmail = "",
   areaId = "",
   page = "",
@@ -431,6 +432,7 @@ function buildAdminUrl({
   bookingStatus?: string;
   paymentStatus?: string;
   paymentMethod?: string;
+  pageSize?: string;
   customerEmail?: string;
   areaId?: string;
   page?: string;
@@ -467,6 +469,7 @@ function buildAdminUrl({
   }
 
   if (areaId) params.set("areaId", areaId);
+  if (pageSize && pageSize !== "25") params.set("pageSize", pageSize);
   if (page && page !== "1") params.set("page", page);
   if (calendarMonth) params.set("calendarMonth", calendarMonth);
 
@@ -489,6 +492,7 @@ export default async function AdminDashboardPage({
     bookingStatus?: string;
     paymentStatus?: string;
     paymentMethod?: string;
+    pageSize?: string;
     customerEmail?: string;
     areaId?: string;
     page?: string;
@@ -509,6 +513,8 @@ export default async function AdminDashboardPage({
   const selectedBookingStatus = typeof params.bookingStatus === "string" ? params.bookingStatus : "";
   const selectedPaymentStatus = typeof params.paymentStatus === "string" ? params.paymentStatus : "";
   const selectedPaymentMethod = typeof params.paymentMethod === "string" ? params.paymentMethod : "";
+  const requestedPageSize = Number.parseInt(typeof params.pageSize === "string" ? params.pageSize : "25", 10);
+  const pageSize = [25, 50, 100].includes(requestedPageSize) ? requestedPageSize : 25;
   const selectedCustomerEmail = typeof params.customerEmail === "string" ? params.customerEmail.trim().toLowerCase() : "";
   const selectedAreaId = typeof params.areaId === "string" ? params.areaId : "";
   const currentPage = Math.max(Number.parseInt(typeof params.page === "string" ? params.page : "1", 10) || 1, 1);
@@ -532,6 +538,8 @@ export default async function AdminDashboardPage({
   if (selectedCustomerEmail) bookingQuery = bookingQuery.eq("email", selectedCustomerEmail);
   if (activeFilter === "pending_payment") bookingQuery = bookingQuery.in("payment_status", ["pending", "pending_payment", "verification_pending"]);
   if (activeFilter === "paid") bookingQuery = bookingQuery.in("payment_status", ["paid", "verified", "confirmed", "approved"]);
+  if (activeFilter === "today") bookingQuery = bookingQuery.eq("booking_date", today);
+  if (activeFilter === "checked_in") bookingQuery = bookingQuery.eq("checked_in", true);
   if (activeFilter === "ikhokha") bookingQuery = bookingQuery.ilike("payment_method", "%ikhokha%");
   if (activeFilter === "bank_transfer") bookingQuery = bookingQuery.or("payment_method.ilike.%bank%,payment_method.eq.manual,payment_method.eq.bank_transfer");
   if (searchQuery) {
@@ -539,7 +547,7 @@ export default async function AdminDashboardPage({
     if (safeSearch) bookingQuery = bookingQuery.or(`customer_name.ilike.*${safeSearch}*,email.ilike.*${safeSearch}*,reservation_code.ilike.*${safeSearch}*`);
   }
 
-  const { data: bookings, error, count: bookingCount } = await bookingQuery.range((currentPage - 1) * ADMIN_PAGE_SIZE, currentPage * ADMIN_PAGE_SIZE - 1);
+  const { data: bookings, error, count: bookingCount } = await bookingQuery.range((currentPage - 1) * pageSize, currentPage * pageSize - 1);
 
   if (error) {
     return (
@@ -554,7 +562,7 @@ export default async function AdminDashboardPage({
   }
 
   const items = bookings ?? [];
-  const totalPages = Math.max(Math.ceil((bookingCount ?? 0) / ADMIN_PAGE_SIZE), 1);
+  const totalPages = Math.max(Math.ceil((bookingCount ?? 0) / pageSize), 1);
   const selectedBookingOutsidePage = selectedBookingId && !items.some((booking) => booking.id === selectedBookingId)
     ? (await supabaseAdmin.from("bookings").select("id, reservation_code, customer_name, email, phone_number, booking_date, booking_time, selected_area_id, total_price, booking_status, payment_status, payment_method, selected_equipment_ids, notes, adults, children_3_plus, children_under_3, checked_in, checked_in_at, checked_in_by, created_at").eq("id", selectedBookingId).maybeSingle()).data
     : null;
@@ -812,6 +820,8 @@ export default async function AdminDashboardPage({
               { value: "ikhokha", label: "iKhokha" },
               { value: "pending_payment", label: "Pending Payment" },
               { value: "paid", label: "Paid" },
+                  { value: "today", label: "Today's Bookings" },
+                  { value: "checked_in", label: "Checked In" },
             ].map((filterOption) => {
               const isActive = activeFilter === filterOption.value;
               return (
@@ -825,6 +835,8 @@ export default async function AdminDashboardPage({
                     bookingStatus: selectedBookingStatus,
                     paymentStatus: selectedPaymentStatus,
                     paymentMethod: selectedPaymentMethod,
+                    pageSize: String(pageSize),
+                    page: "1",
                   })}
                   className={`inline-flex items-center rounded-full px-3 py-2 text-xs font-semibold transition ${
                     isActive
@@ -840,6 +852,7 @@ export default async function AdminDashboardPage({
 
           <form method="GET" action="/admin" className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-7">
             <input type="hidden" name="filter" value={activeFilter} />
+            <input type="hidden" name="page" value="1" />
             {selectedBookingId && <input type="hidden" name="bookingId" value={selectedBookingId} />}
 
             <label className="lg:col-span-2">
@@ -861,6 +874,15 @@ export default async function AdminDashboardPage({
                 defaultValue={selectedDate}
                 className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-emerald-500 focus:bg-white"
               />
+            </label>
+
+            <label>
+              <span className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Per page</span>
+              <select name="pageSize" defaultValue={String(pageSize)} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-emerald-500 focus:bg-white">
+                <option value="25">25</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+              </select>
             </label>
 
             <label>
@@ -938,8 +960,9 @@ export default async function AdminDashboardPage({
             <table className="min-w-[1180px] divide-y divide-slate-200 text-left text-sm text-slate-700">
               <thead className="sticky top-0 z-10 bg-slate-50/95 backdrop-blur">
                 <tr>
-                  <th className="px-4 py-3 font-semibold text-slate-700">Booking / Reference</th>
+                  <th className="sticky left-0 z-20 bg-slate-50/95 px-4 py-3 font-semibold text-slate-700 shadow-[4px_0_8px_rgba(15,23,42,0.06)]">Action</th>
                   <th className="px-4 py-3 font-semibold text-slate-700">Customer</th>
+                  <th className="px-4 py-3 font-semibold text-slate-700">Booking / Reference</th>
                   <th className="px-4 py-3 font-semibold text-slate-700">Created</th>
                   <th className="px-4 py-3 font-semibold text-slate-700">Adults</th>
                   <th className="px-4 py-3 font-semibold text-slate-700">Children</th>
@@ -951,7 +974,6 @@ export default async function AdminDashboardPage({
                   <th className="px-4 py-3 font-semibold text-slate-700">Payment Method</th>
                   <th className="px-4 py-3 font-semibold text-slate-700">Payment Status</th>
                   <th className="px-4 py-3 font-semibold text-slate-700">Booking Status</th>
-                  <th className="px-4 py-3 font-semibold text-slate-700">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
@@ -972,13 +994,21 @@ export default async function AdminDashboardPage({
 
                   return (
                     <tr key={booking.id} className={`align-top transition-colors hover:bg-emerald-50/30 ${booking.id === filteredItems[0]?.id ? "bg-emerald-50/45" : ""}`}>
-                      <td className="px-5 py-4">
-                        <div className="font-semibold text-slate-900">{formatShortReference(booking.reservation_code || booking.id)}</div>
-                        <div className="mt-1 text-xs text-slate-500">{booking.reservation_code ? "Ref" : "ID"}</div>
+                      <td className="sticky left-0 z-[1] bg-white px-5 py-4 shadow-[4px_0_8px_rgba(15,23,42,0.06)]">
+                        <a
+                          href={buildAdminUrl({ bookingId: booking.id, filter: activeFilter, search: searchQuery, date: selectedDate, bookingStatus: selectedBookingStatus, paymentStatus: selectedPaymentStatus, paymentMethod: selectedPaymentMethod, pageSize: String(pageSize), page: String(currentPage) })}
+                          className="inline-flex min-h-11 items-center justify-center whitespace-nowrap rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-100"
+                        >
+                          View Details
+                        </a>
                       </td>
                       <td className="px-5 py-4">
                         <a href={buildAdminUrl({ customerEmail: booking.email, filter: activeFilter, search: searchQuery, date: selectedDate, bookingStatus: selectedBookingStatus, paymentStatus: selectedPaymentStatus, paymentMethod: selectedPaymentMethod })} className="font-semibold text-emerald-800 hover:text-emerald-950">{booking.customer_name || "Unknown"}</a>
                         <div className="mt-1 text-xs text-slate-500">{booking.email || "No email"}</div>
+                      </td>
+                      <td className="px-5 py-4">
+                        <div className="font-semibold text-slate-900">{formatShortReference(booking.reservation_code || booking.id)}</div>
+                        <div className="mt-1 text-xs text-slate-500">{booking.reservation_code ? "Ref" : "ID"}</div>
                       </td>
                       <td className="px-5 py-4">
                         <div className="font-medium text-slate-900">{formatCreatedAt(booking.created_at)}</div>
@@ -1002,22 +1032,6 @@ export default async function AdminDashboardPage({
                         <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold ${getBookingStatusClasses(booking.booking_status)}`}>
                           {formatBookingStatus(booking.booking_status)}
                         </span>
-                      </td>
-                      <td className="px-5 py-4">
-                        <a
-                          href={buildAdminUrl({
-                            bookingId: booking.id,
-                            filter: activeFilter,
-                            search: searchQuery,
-                            date: selectedDate,
-                            bookingStatus: selectedBookingStatus,
-                            paymentStatus: selectedPaymentStatus,
-                            paymentMethod: selectedPaymentMethod,
-                          })}
-                          className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-100"
-                        >
-                          View Details
-                        </a>
                       </td>
                     </tr>
                   );
