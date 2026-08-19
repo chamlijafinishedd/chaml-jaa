@@ -542,8 +542,8 @@ export default function BookingPage() {
                 <div className="grid gap-4 sm:gap-5 md:grid-cols-3">
                   {[
                     ["adults", "Adults"],
-                    ["children3Plus", "Children 3+"],
-                    ["childrenUnder3", "Children Under 3"],
+                    ["children3Plus", "Children (3 yaş üstü)"],
+                    ["childrenUnder3", "Children (3 yaş altı)"],
                   ].map(([key, label]) => (
                     <div key={key}>
                       <label htmlFor={key} className="mb-2 block text-sm font-semibold text-charcoal/80">{label}</label>

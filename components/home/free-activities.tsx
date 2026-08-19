@@ -37,6 +37,36 @@ const ACTIVITY_IMAGES: Record<string, { image?: string; alt: string }> = {
     image: "/chamlija/19.jpg",
     alt: "Open natural green space and outdoor scenery at Chamlija",
   },
+  "Hayvan Seyretme": {
+    image: "/chamlija/17.jpg",
+    alt: "Animals in a natural outdoor environment at Chamlija",
+  },
+  "Bisiklet Sürüşü": {
+    image: "/chamlija/bisiklet.jpeg",
+    alt: "Cyclists enjoying a scenic outdoor area at Chamlija",
+  },
+  "Sarı Ağaç Oyun Alanı": {
+    image: "/chamlija/15.jpg",
+    alt: "Children playing in a bright outdoor playground at Chamlija",
+  },
+  "Su Oyun Alanı": {
+    image: "/chamlija/oyun-alani.jpeg",
+    alt: "Water play area with outdoor family fun at Chamlija",
+  },
+  "Basketbol Sahası": {
+    image: "/chamlija/basketbol.jpeg",
+    alt: "Basketball court area in a family-friendly outdoor setting",
+  },
+  "Doğa & Açık Alanlar": {
+    image: "/chamlija/19.jpg",
+    alt: "Open natural green space and outdoor scenery at Chamlija",
+  },
+  "Dier Sieninge": { image: "/chamlija/17.jpg", alt: "Animals in a natural outdoor environment at Chamlija" },
+  Fietsry: { image: "/chamlija/bisiklet.jpeg", alt: "Cyclists enjoying a scenic outdoor area at Chamlija" },
+  "Geel-boom Speeltuin": { image: "/chamlija/15.jpg", alt: "Children playing in a bright outdoor playground at Chamlija" },
+  "Water-speel Area": { image: "/chamlija/oyun-alani.jpeg", alt: "Water play area with outdoor family fun at Chamlija" },
+  "Basketbal Hof": { image: "/chamlija/basketbol.jpeg", alt: "Basketball court area in a family-friendly outdoor setting" },
+  "Natuur & Oop Ruimtes": { image: "/chamlija/19.jpg", alt: "Open natural green space and outdoor scenery at Chamlija" },
 };
 
 export function FreeActivities({ products }: { products: ProductRecord[] }) {

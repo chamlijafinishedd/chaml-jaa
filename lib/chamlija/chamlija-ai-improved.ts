@@ -1359,6 +1359,11 @@ export function buildChamlijaAIResponse(input: string): ChatResponse {
     return photoShootAnswer;
   }
 
+  const paidActivityPaymentAnswer = getPaidActivityPaymentAnswer(input, normalized);
+  if (paidActivityPaymentAnswer) {
+    return paidActivityPaymentAnswer;
+  }
+
   const verifiedAnswer = getVerifiedDirectAnswer(input, normalized);
   if (verifiedAnswer) {
     return verifiedAnswer;
@@ -1474,6 +1479,52 @@ function getPhotoShootAnswer(input: string, normalized: string): ChatResponse | 
       content: [isTurkish
         ? "Fotoğraf çekimi: Tüm gün R1.200, 0–4 saat R600."
         : "Photo Shoot: Full day ZAR 1,200; 0–4 hours ZAR 600."],
+    }],
+  };
+}
+
+function getPaidActivityPaymentAnswer(input: string, normalized: string): ChatResponse | null {
+  const activityMentioned = containsAny(normalized, [
+    "ox wagon",
+    "oxwagon",
+    "ox-wagon",
+    "wagon ride",
+    "wagon tour",
+    "hayvan besleme",
+    "animal feeding",
+    "feed animals",
+  ]);
+  const advancePaymentQuestion = containsAny(normalized, [
+    "advance",
+    "in advance",
+    "pay now",
+    "payment now",
+    "pay for",
+    "pay during",
+    "pay when",
+    "online payment",
+    "online booking",
+    "reservation payment",
+    "before your visit",
+    "simdi odem",
+    "önceden ödem",
+    "rezervasyon yaparken",
+    "rezervasyon sirasinda",
+    "rezervasyon sırasında",
+    "simdi mi",
+  ]);
+
+  if (!activityMentioned || !advancePaymentQuestion) {
+    return null;
+  }
+
+  const isTurkish = isTurkishInput(input);
+  return {
+    type: "text",
+    sections: [{
+      content: [isTurkish
+        ? "Hayır, bu aktiviteler için önceden ödeme yapmanız gerekmez. Oxwagon Ride ve Animal Feeding ücretlerini Chamlija'ya geldiğinizde doğrudan ödeyebilirsiniz."
+        : "No, you do not need to pay for these activities in advance. Activities such as Oxwagon Rides and Animal Feeding can be paid for directly at Chamlija when you arrive."],
     }],
   };
 }
