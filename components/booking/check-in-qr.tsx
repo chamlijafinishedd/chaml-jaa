@@ -1,6 +1,7 @@
 "use client";
 
 import { QRCodeSVG } from "qrcode.react";
+import { useRef } from "react";
 
 type CheckInQrProps = {
   token: string | null | undefined;
@@ -8,20 +9,64 @@ type CheckInQrProps = {
 };
 
 export function CheckInQr({ token, paymentStatus }: CheckInQrProps) {
+  const qrCodeRef = useRef<HTMLDivElement>(null);
   if (!token) return null;
 
   const checkInUrl = typeof window === "undefined" ? `/gate/check-in?token=${encodeURIComponent(token)}` : `${window.location.origin}/gate/check-in?token=${encodeURIComponent(token)}`;
   const normalizedPaymentStatus = String(paymentStatus ?? "pending").trim().toLowerCase();
   const paymentConfirmed = ["paid", "verified"].includes(normalizedPaymentStatus);
 
+  function downloadQrCode() {
+    const svg = qrCodeRef.current?.querySelector("svg");
+    if (!svg) return;
+
+    const svgData = new XMLSerializer().serializeToString(svg);
+    const svgBlob = new Blob([svgData], { type: "image/svg+xml;charset=utf-8" });
+    const svgUrl = URL.createObjectURL(svgBlob);
+    const image = new Image();
+
+    image.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = 660;
+      canvas.height = 660;
+      const context = canvas.getContext("2d");
+      if (!context) {
+        URL.revokeObjectURL(svgUrl);
+        return;
+      }
+
+      context.fillStyle = "#ffffff";
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(svgUrl);
+
+      const link = document.createElement("a");
+      link.download = "chamlija-check-in-qr.png";
+      link.href = canvas.toDataURL("image/png");
+      link.style.display = "none";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    };
+
+    image.src = svgUrl;
+  }
+
   return (
     <div className="mt-6 rounded-[1.5rem] border border-emerald-200 bg-emerald-50 p-5 text-center">
       <div className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-700">Gate Check-in QR</div>
-      <div className="mx-auto mt-4 w-fit rounded-2xl bg-white p-3 shadow-sm">
+      <div ref={qrCodeRef} className="mx-auto mt-4 w-fit rounded-2xl bg-white p-3 shadow-sm">
         <QRCodeSVG value={checkInUrl} size={220} level="M" includeMargin aria-label="Reservation gate check-in QR code" />
       </div>
-      <p className="mt-4 text-sm font-semibold text-emerald-950">Please keep this QR code and show it to our gate staff when you arrive.</p>
-      {!paymentConfirmed && <p className="mt-2 text-xs font-semibold text-amber-800">Payment verification pending. Entry is not available until payment is confirmed.</p>}
+      <button type="button" onClick={downloadQrCode} className="mt-4 inline-flex min-h-[52px] w-full items-center justify-center rounded-xl bg-emerald-700 px-4 py-3 text-base font-black uppercase tracking-wide text-white shadow-lg transition hover:bg-emerald-800 focus:outline-none focus:ring-4 focus:ring-emerald-300">
+        ⬇️ DOWNLOAD QR CODE
+      </button>
+      <div className="mt-4 rounded-2xl border-2 border-amber-500 bg-amber-100 p-5 text-left shadow-md sm:p-6">
+        <p className="text-base font-black uppercase leading-6 tracking-wide text-amber-950 sm:text-lg">⚠️ IMPORTANT — SAVE YOUR QR CODE</p>
+        <p className="mt-3 text-sm font-bold leading-6 text-amber-950 sm:text-base">You MUST show this QR code to our gate staff when you arrive at Chamlija.</p>
+        <p className="mt-3 text-sm leading-6 text-amber-950 sm:text-base">Download it to your phone OR take a screenshot now and keep it safely. If you cannot show your QR code at the gate, entry may be refused.</p>
+      </div>
+      {!paymentConfirmed && <p className="mt-4 rounded-xl border-2 border-amber-400 bg-amber-50 px-4 py-3 text-left text-sm font-bold leading-6 text-amber-950">⚠️ Payment verification is still pending. Entry will only be available after your payment has been confirmed.</p>}
     </div>
   );
 }
