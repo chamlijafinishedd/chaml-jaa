@@ -2,8 +2,6 @@ import { NextResponse } from "next/server";
 import { requireAdminAccess } from "@/lib/auth/admin";
 import { getSupabaseAdminClient } from "@/lib/supabase/server";
 
-const PAYMENT_CONFIRMED = ["paid", "verified"];
-
 function extractToken(value: string) {
   if (!value.includes("token=")) return value;
   try {
@@ -15,6 +13,15 @@ function extractToken(value: string) {
 
 function todayInSouthAfrica() {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Johannesburg", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+}
+
+export async function GET() {
+  try {
+    const staff = await requireAdminAccess();
+    return NextResponse.json({ authenticated: true, staffEmail: staff.email });
+  } catch {
+    return NextResponse.json({ authenticated: false }, { status: 401 });
+  }
 }
 
 export async function POST(request: Request) {
@@ -36,8 +43,12 @@ export async function POST(request: Request) {
     if (booking.checked_in) return NextResponse.json({ error: "This booking has already been checked in.", booking }, { status: 409 });
     if (booking.booking_date !== todayInSouthAfrica()) return NextResponse.json({ error: "This booking is for another date.", booking }, { status: 409 });
 
-    const paymentConfirmed = PAYMENT_CONFIRMED.includes(String(booking.payment_status ?? "").toLowerCase()) || booking.booking_status === "confirmed";
-    if (!paymentConfirmed) return NextResponse.json({ error: "Payment is not confirmed.", booking }, { status: 409 });
+    if (String(booking.payment_status ?? "").toLowerCase() !== "paid") {
+      return NextResponse.json({ error: "Payment has not been confirmed.", booking }, { status: 409 });
+    }
+    if (String(booking.booking_status ?? "").toLowerCase() !== "confirmed") {
+      return NextResponse.json({ error: "Booking has not been confirmed.", booking }, { status: 409 });
+    }
 
     const { data: updated, error: updateError } = await supabaseAdmin
       .from("bookings")

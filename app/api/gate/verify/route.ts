@@ -1,8 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireAdminAccess } from "@/lib/auth/admin";
 import { getSupabaseAdminClient } from "@/lib/supabase/server";
-
-const PAYMENT_CONFIRMED = ["paid", "verified"];
 
 function todayInSouthAfrica() {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Johannesburg", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
@@ -10,7 +7,6 @@ function todayInSouthAfrica() {
 
 export async function POST(request: Request) {
   try {
-    const staff = await requireAdminAccess();
     const body = await request.json().catch(() => ({}));
     const rawToken = typeof body?.token === "string" ? body.token.trim() : "";
     const token = rawToken.includes("token=") ? new URL(rawToken, "http://gate.local").searchParams.get("token") ?? "" : rawToken;
@@ -32,14 +28,14 @@ export async function POST(request: Request) {
       : { data: null };
 
     const base = {
-      booking: { ...booking, area_name: area?.name ?? "No Picnic Area", checked_in_by: booking.checked_in_by ? "Gate staff" : null },
-      paymentConfirmed: PAYMENT_CONFIRMED.includes(String(booking.payment_status ?? "").toLowerCase()) || booking.booking_status === "confirmed",
+      booking: { ...booking, area_name: area?.name ?? "No Picnic Area" },
+      paymentConfirmed: String(booking.payment_status ?? "").toLowerCase() === "paid",
+      bookingConfirmed: String(booking.booking_status ?? "").toLowerCase() === "confirmed",
       isToday: booking.booking_date === todayInSouthAfrica(),
-      staffEmail: staff.email,
     };
 
     return NextResponse.json({ success: true, ...base });
   } catch {
-    return NextResponse.json({ error: "Gate staff access is required." }, { status: 403 });
+    return NextResponse.json({ error: "Unable to verify QR code." }, { status: 500 });
   }
 }
