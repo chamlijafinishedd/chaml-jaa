@@ -73,36 +73,40 @@ export async function POST(
     const auditNote = adminNote || payment?.review_note || "Reviewed by admin.";
 
     if (action === "approve") {
-      const { error: bookingUpdateError } = await supabaseAdmin
+      const { data: updatedBooking, error: bookingUpdateError } = await supabaseAdmin
         .from("bookings")
         .update({
           payment_status: "paid",
           booking_status: "confirmed",
           updated_at: new Date().toISOString(),
         })
-        .eq("id", bookingId);
+        .eq("id", bookingId)
+        .select("id, payment_status, booking_status")
+        .maybeSingle();
 
       if (bookingUpdateError) {
         return NextResponse.json({ error: bookingUpdateError.message }, { status: 500 });
       }
+      if (!updatedBooking) {
+        return NextResponse.json({ error: "Booking approval was not persisted." }, { status: 500 });
+      }
 
-      const { error: paymentError } = await supabaseAdmin
-        .from("payments")
-        .update({
-          status: "paid",
-          review_status: "approved",
-          reviewed_at: new Date().toISOString(),
-          review_note: auditNote,
-          rejection_reason: null,
-          verified_by: adminUser?.id ?? null,
-          verified_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-        .eq("booking_id", bookingId)
-        .eq("provider", "manual");
+      const paymentUpdate = {
+        status: "paid",
+        review_status: "approved",
+        reviewed_at: new Date().toISOString(),
+        review_note: auditNote,
+        rejection_reason: null,
+        verified_by: adminUser?.id ?? null,
+        verified_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      const { data: updatedPayment, error: paymentError } = payment
+        ? await supabaseAdmin.from("payments").update(paymentUpdate).eq("id", payment.id).select("id, status, review_status").maybeSingle()
+        : { data: null, error: new Error("Manual payment record not found.") };
 
-      if (paymentError) {
-        return NextResponse.json({ error: paymentError.message }, { status: 500 });
+      if (paymentError || !updatedPayment) {
+        return NextResponse.json({ error: paymentError?.message ?? "Manual payment approval was not persisted." }, { status: 500 });
       }
 
       await supabaseAdmin.from("payment_audit_logs").insert({
