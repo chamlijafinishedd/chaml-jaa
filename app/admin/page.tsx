@@ -358,6 +358,23 @@ function formatDisplayTime(value: string | null | undefined) {
   return value;
 }
 
+function formatCreatedAt(value: string | null | undefined) {
+  if (!value) return "—";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Africa/Johannesburg",
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(date);
+}
+
 function getBookingStatusClasses(status: string | null | undefined) {
   const normalized = String(status ?? "pending").trim().toLowerCase();
 
@@ -502,8 +519,8 @@ export default async function AdminDashboardPage({
   let bookingQuery = supabaseAdmin
     .from("bookings")
     .select("id, reservation_code, customer_name, email, phone_number, booking_date, booking_time, selected_area_id, total_price, booking_status, payment_status, payment_method, selected_equipment_ids, notes, adults, children_3_plus, children_under_3, created_at", { count: "exact" })
-    .order("booking_date", { ascending: true })
-    .order("booking_time", { ascending: true });
+    .order("created_at", { ascending: false, nullsFirst: false })
+    .order("id", { ascending: false });
 
   if (selectedDate) bookingQuery = bookingQuery.eq("booking_date", selectedDate);
   if (selectedBookingStatus) bookingQuery = bookingQuery.eq("booking_status", selectedBookingStatus);
@@ -694,9 +711,12 @@ export default async function AdminDashboardPage({
     ? (
         await supabaseAdmin
           .from("payments")
-          .select("id, amount, refund_amount, status, provider, payment_method, receipt_url, receipt_file_name, review_status, reviewed_at, review_note")
+          .select("id, amount, refund_amount, status, provider, receipt_url, receipt_file_name, review_status, reviewed_at, review_note")
           .eq("booking_id", selectedBookingWithDiscount.id)
-          .order("created_at", { ascending: false })
+          .eq("provider", "manual")
+          .order("receipt_url", { ascending: false, nullsFirst: false })
+          .order("updated_at", { ascending: false, nullsFirst: false })
+          .order("created_at", { ascending: false, nullsFirst: false })
           .limit(1)
           .maybeSingle()
       )?.data ?? null
@@ -918,7 +938,7 @@ export default async function AdminDashboardPage({
                 <tr>
                   <th className="px-4 py-3 font-semibold text-slate-700">Booking / Reference</th>
                   <th className="px-4 py-3 font-semibold text-slate-700">Customer</th>
-                  <th className="px-4 py-3 font-semibold text-slate-700">Date &amp; Time</th>
+                  <th className="px-4 py-3 font-semibold text-slate-700">Created</th>
                   <th className="px-4 py-3 font-semibold text-slate-700">Adults</th>
                   <th className="px-4 py-3 font-semibold text-slate-700">Children</th>
                   <th className="px-4 py-3 font-semibold text-slate-700">Total People</th>
@@ -959,8 +979,7 @@ export default async function AdminDashboardPage({
                         <div className="mt-1 text-xs text-slate-500">{booking.email || "No email"}</div>
                       </td>
                       <td className="px-4 py-4">
-                        <div className="font-medium text-slate-900">{formatDisplayDate(booking.booking_date)}</div>
-                        <div className="mt-1 text-xs text-slate-500">{formatDisplayTime(booking.booking_time)}</div>
+                        <div className="font-medium text-slate-900">{formatCreatedAt(booking.created_at)}</div>
                       </td>
                       <td className="px-4 py-4 text-slate-700">{visitorCounts.adults}</td>
                       <td className="px-4 py-4 text-slate-700">{visitorCounts.children}</td>
@@ -1031,7 +1050,7 @@ export default async function AdminDashboardPage({
                   </div>
                 </div>
                 <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
-                  <div className="min-w-0 overflow-hidden"><div className="text-xs text-slate-500">Date &amp; time</div><div className="mt-1 break-words font-semibold leading-5 text-slate-900">{formatDisplayDate(booking.booking_date)} <span className="whitespace-nowrap">· {formatDisplayTime(booking.booking_time)}</span></div></div>
+                  <div className="min-w-0 overflow-hidden"><div className="text-xs text-slate-500">Created</div><div className="mt-1 break-words font-semibold leading-5 text-slate-900">{formatCreatedAt(booking.created_at)}</div></div>
                   <div className="min-w-0 overflow-hidden"><div className="text-xs text-slate-500">Area</div><div className="mt-1 truncate font-semibold text-slate-900" title={areaName}>{areaName}</div></div>
                   <div><div className="text-xs text-slate-500">Adults</div><div className="mt-1 font-semibold text-slate-900">{visitorCounts.adults}</div></div>
                   <div><div className="text-xs text-slate-500">Children</div><div className="mt-1 font-semibold text-slate-900">{visitorCounts.children}</div></div>
