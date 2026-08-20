@@ -146,17 +146,31 @@ function PaymentContent() {
     currency: "ZAR",
     maximumFractionDigits: 0,
   });
-  const whatsappReference = state.booking?.reservation_code || state.booking?.id;
-  const whatsappMessage = whatsappReference
-    ? `Hi Chamlija, I have a question about my reservation ${whatsappReference}.`
-    : "Hi Chamlija, I have a question about my booking.";
-  const whatsappUrl = `https://wa.me/27620873208?text=${encodeURIComponent(whatsappMessage)}`;
-
   const currentPaymentState = state.booking ? getBookingPaymentState({
     payment_status: state.booking.payment_status,
     booking_status: state.booking.booking_status,
     payment_method: state.selectedMethod ?? state.booking.payment_method ?? null,
   }) : null;
+  const whatsappReference = state.booking?.reservation_code || state.booking?.id;
+  const whatsappQrUrl = state.booking?.check_in_token
+    ? `https://part8-chamlija.vercel.app/gate/check-in?token=${encodeURIComponent(state.booking.check_in_token)}`
+    : "";
+  const whatsappMessage = `Hi Chamlija 👋
+
+My reservation details:
+
+Reservation: ${whatsappReference || "—"}
+Date: ${state.booking?.booking_date || "—"}
+Arrival: ${state.booking?.booking_time || "—"}
+Guests: ${state.booking ? Number(state.booking.adults ?? 0) + Number(state.booking.children_3_plus ?? 0) + Number(state.booking.children_under_3 ?? 0) : "—"}
+Total: ${state.booking ? totalFormatter.format(Number(state.booking.total_price ?? 0)) : "—"}
+Payment: ${currentPaymentState?.label || "Pending"}
+
+MY GATE QR:
+${whatsappQrUrl}
+
+Please keep this WhatsApp message so I can access my gate QR again if I lose it.`;
+  const whatsappUrl = `https://wa.me/27655859178?text=${encodeURIComponent(whatsappMessage)}`;
 
   const showCustomerStatusState = !!state.booking && (currentPaymentState?.code === "under_review" || currentPaymentState?.code === "verified" || currentPaymentState?.code === "rejected" || currentPaymentState?.code === "receipt_required");
   const shouldShowBankFlow = !!state.booking && (state.selectedMethod === "bank_transfer" || state.booking.payment_method === "bank_transfer") && !showCustomerStatusState && !state.reservationConfirmed;

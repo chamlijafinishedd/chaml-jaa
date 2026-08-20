@@ -5,7 +5,7 @@ import { useLanguage } from "@/components/site/language-provider";
 import { CHAMLIJA_LOCATION, CHAMLIJA_MAPS_URL } from "@/lib/location";
 
 const CONTACT = {
-  phone: "+27 062 087 3208",
+  phone: "+27 65 585 9178",
   email: "buyukchamlija@uict.org.za",
   address: CHAMLIJA_LOCATION.address,
   instagram: "buyukchamlija",
