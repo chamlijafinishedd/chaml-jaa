@@ -3,6 +3,7 @@ import { getSupabaseAdminClient } from "@/lib/supabase/server";
 import { requireAdminAccess } from "@/lib/auth/admin";
 import { getDiscountInfo } from "@/lib/business-rules/discounts";
 import { ReservationCalendar } from "@/components/admin/reservation-calendar";
+import { AdminNotifications, type AdminNotification } from "@/components/admin/admin-notifications";
 
 function formatStatus(status: string | null | undefined) {
   return (status ?? "pending").replace(/_/g, " ").replace(/\b\w/g, (match) => match.toUpperCase());
@@ -128,24 +129,23 @@ function isActiveBooking(booking: { booking_status?: string | null; payment_stat
   return ["pending", "confirmed"].includes(bookingStatus) && !TERMINAL_PAYMENT_STATUSES.includes(paymentStatus);
 }
 
-async function fetchAllSummaryBookings(supabaseAdmin: ReturnType<typeof getSupabaseAdminClient>) {
-  const rows: SummaryBooking[] = [];
-  let offset = 0;
+async function fetchSummaryBookings(supabaseAdmin: ReturnType<typeof getSupabaseAdminClient>, startDate: string, endDate: string) {
+  const { data, error } = await supabaseAdmin
+    .from("bookings")
+    .select("id, booking_date, booking_status, payment_status, adults, children_3_plus, children_under_3, total_price")
+    .gte("booking_date", startDate)
+    .lte("booking_date", endDate)
+    .order("booking_date", { ascending: true });
 
-  while (true) {
-    const { data, error } = await supabaseAdmin
-      .from("bookings")
-      .select("id, booking_date, booking_status, payment_status, adults, children_3_plus, children_under_3, total_price")
-      .order("booking_date", { ascending: true })
-      .range(offset, offset + SUMMARY_PAGE_SIZE - 1);
+  if (error) throw error;
+  return (data ?? []) as SummaryBooking[];
+}
 
-    if (error) throw error;
-    rows.push(...((data ?? []) as SummaryBooking[]));
-    if (!data || data.length < SUMMARY_PAGE_SIZE) break;
-    offset += SUMMARY_PAGE_SIZE;
-  }
-
-  return rows;
+async function fetchBookingCount(supabaseAdmin: ReturnType<typeof getSupabaseAdminClient>, apply: (query: any) => any) {
+  const query = apply(supabaseAdmin.from("bookings").select("id", { count: "exact", head: true }));
+  const { count, error } = await query;
+  if (error) throw error;
+  return count ?? 0;
 }
 
 async function fetchPaymentAggregates(supabaseAdmin: ReturnType<typeof getSupabaseAdminClient>, bookingIds: string[]) {
@@ -196,6 +196,33 @@ async function fetchCalendarBookings(supabaseAdmin: ReturnType<typeof getSupabas
   }
 
   return rows;
+}
+
+async function fetchAdminNotifications(supabaseAdmin: ReturnType<typeof getSupabaseAdminClient>): Promise<AdminNotification[]> {
+  const [{ data: newBookings }, { data: pendingPayments }, { data: auditRows }, { data: recentCheckIns }] = await Promise.all([
+    supabaseAdmin.from("bookings").select("id, reservation_code, created_at").order("created_at", { ascending: false }).limit(5),
+    supabaseAdmin.from("bookings").select("id, reservation_code, updated_at, created_at").in("payment_status", ["under_review", "receipt_uploaded", "pending_payment"]).order("updated_at", { ascending: false }).limit(5),
+    supabaseAdmin.from("payment_audit_logs").select("booking_id, new_status, changed_at").order("changed_at", { ascending: false }).limit(10),
+    supabaseAdmin.from("bookings").select("id, reservation_code, checked_in_at").eq("checked_in", true).order("checked_in_at", { ascending: false }).limit(5),
+  ]);
+
+  const auditBookingIds = [...new Set((auditRows ?? []).map((row) => row.booking_id).filter(Boolean))];
+  const { data: auditBookings } = auditBookingIds.length > 0
+    ? await supabaseAdmin.from("bookings").select("id, reservation_code").in("id", auditBookingIds)
+    : { data: [] };
+  const referenceById = new Map((auditBookings ?? []).map((booking) => [booking.id, booking.reservation_code]));
+  const notifications: AdminNotification[] = [];
+
+  for (const booking of newBookings ?? []) notifications.push({ id: `booking-${booking.id}`, kind: "booking", title: "New booking received", time: booking.created_at, bookingId: booking.id, reference: booking.reservation_code });
+  for (const booking of pendingPayments ?? []) notifications.push({ id: `payment-review-${booking.id}`, kind: "payment", title: "Payment awaiting review", time: booking.updated_at ?? booking.created_at, bookingId: booking.id, reference: booking.reservation_code });
+  for (const audit of auditRows ?? []) {
+    const status = String(audit.new_status ?? "").toLowerCase();
+    const title = status === "approved" ? "Payment approved" : status === "rejected" ? "Payment rejected" : null;
+    if (title) notifications.push({ id: `audit-${audit.booking_id}-${audit.changed_at}`, kind: "payment", title, time: audit.changed_at, bookingId: audit.booking_id, reference: referenceById.get(audit.booking_id) ?? null });
+  }
+  for (const booking of recentCheckIns ?? []) notifications.push({ id: `check-in-${booking.id}-${booking.checked_in_at}`, kind: "check_in", title: "Check-in completed", time: booking.checked_in_at, bookingId: booking.id, reference: booking.reservation_code });
+
+  return notifications.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime()).slice(0, 20);
 }
 
 function getCalendarMonthRange(monthKey: string) {
@@ -601,77 +628,26 @@ export default async function AdminDashboardPage({
     .eq("is_bookable", true)
     .order("name", { ascending: true });
 
-  const filteredItems = items.filter((booking) => {
-    const normalizedMethod = normalizePaymentMethod(booking.payment_method);
-    const normalizedBookingStatus = String(booking.booking_status ?? "").trim().toLowerCase();
-    const normalizedPaymentStatus = String(booking.payment_status ?? "").trim().toLowerCase();
-    const combinedText = [
-      booking.customer_name,
-      booking.email,
-      booking.reservation_code,
-      booking.id,
-      booking.selected_area_id,
-      formatPaymentMethod(booking.payment_method),
-    ]
-      .filter(Boolean)
-      .join(" ")
-      .toLowerCase();
-
-    if (activeFilter === "bank_transfer") {
-      if (!(isBankTransferMethod(booking.payment_method) && !isIhkokhaMethod(booking.payment_method))) {
-        return false;
-      }
-    } else if (activeFilter === "ikhokha") {
-      if (!isIhkokhaMethod(booking.payment_method)) {
-        return false;
-      }
-    } else if (activeFilter === "pending_payment") {
-      if (!(normalizedPaymentStatus === "pending" || normalizedPaymentStatus === "pending_payment")) {
-        return false;
-      }
-    } else if (activeFilter === "paid") {
-      if (!["paid", "verified", "confirmed", "approved"].includes(normalizedPaymentStatus)) {
-        return false;
-      }
-    }
-
-    if (searchQuery && !combinedText.includes(searchQuery)) {
-      return false;
-    }
-
-    if (selectedDate && booking.booking_date !== selectedDate) {
-      return false;
-    }
-
-    if (selectedBookingStatus && normalizedBookingStatus !== selectedBookingStatus.toLowerCase()) {
-      return false;
-    }
-
-    if (selectedPaymentStatus && normalizedPaymentStatus !== selectedPaymentStatus.toLowerCase()) {
-      return false;
-    }
-
-    if (selectedPaymentMethod && normalizedMethod !== selectedPaymentMethod.toLowerCase()) {
-      return false;
-    }
-
-    return true;
-  });
-
-  const summaryRows = await fetchAllSummaryBookings(supabaseAdmin);
+  const weekStart = getWeekStart(today);
+  const [summaryRows, todayRows, bookingTotal, pendingPayments, confirmedBookings, cancelledBookings, refundPending] = await Promise.all([
+    fetchSummaryBookings(supabaseAdmin, weekStart, today),
+    fetchSummaryBookings(supabaseAdmin, today, today),
+    fetchBookingCount(supabaseAdmin, (query) => query),
+    fetchBookingCount(supabaseAdmin, (query) => query.in("payment_status", ["pending", "pending_payment", "verification_pending"])),
+    fetchBookingCount(supabaseAdmin, (query) => query.in("booking_status", ["confirmed", "paid", "approved", "verified"])),
+    fetchBookingCount(supabaseAdmin, (query) => query.in("booking_status", ["cancelled", "canceled"])),
+    fetchBookingCount(supabaseAdmin, (query) => query.eq("payment_status", "refund_pending")),
+  ]);
+  const filteredItems = items;
   const summary = {
-    total: summaryRows.length,
-    pendingPayments: summaryRows.filter((booking) => {
-      const paymentStatus = String(booking.payment_status ?? "").trim().toLowerCase();
-      return paymentStatus === "pending" || paymentStatus === "pending_payment" || paymentStatus === "verification_pending";
-    }).length,
-    confirmed: summaryRows.filter((booking) => ["confirmed", "paid", "approved", "verified"].includes(String(booking.booking_status ?? "").trim().toLowerCase())).length,
-    cancelled: summaryRows.filter((booking) => ["cancelled", "canceled"].includes(String(booking.booking_status ?? "").trim().toLowerCase())).length,
-    refundPending: summaryRows.filter((booking) => String(booking.payment_status ?? "").trim().toLowerCase() === "refund_pending").length,
+    total: bookingTotal,
+    pendingPayments,
+    confirmed: confirmedBookings,
+    cancelled: cancelledBookings,
+    refundPending,
   };
 
-  const weekStart = getWeekStart(today);
-  const todaySummary = summarizeBookings(summaryRows, today, today);
+  const todaySummary = summarizeBookings(todayRows, today, today);
   const weekSummary = summarizeBookings(summaryRows, weekStart, today);
   const calendarRange = getCalendarMonthRange(calendarMonth);
   const calendarBookings = await fetchCalendarBookings(supabaseAdmin, calendarRange.start, calendarRange.end);
@@ -742,6 +718,7 @@ export default async function AdminDashboardPage({
         .map((value) => productLookup[value] || "Service")
         .filter(Boolean)
     : [];
+  const adminNotifications = await fetchAdminNotifications(supabaseAdmin);
 
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-8 text-slate-900 sm:px-6 lg:px-8">
@@ -752,6 +729,7 @@ export default async function AdminDashboardPage({
             <h1 className="mt-2 hidden text-3xl font-black tracking-tight text-slate-900 md:block">Booking management</h1>
             <h1 className="mt-2 text-2xl font-black tracking-tight text-slate-900 md:hidden">Bookings <span className="text-emerald-700">({bookingCount ?? 0})</span></h1>
           </div>
+          <AdminNotifications notifications={adminNotifications} />
         </div>
 
         <div className="grid min-w-0 grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-[repeat(5,minmax(0,1fr))]">
@@ -851,7 +829,7 @@ export default async function AdminDashboardPage({
             })}
           </div>
 
-          <form method="GET" action="/admin" className="hidden min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-7 md:grid">
+          <form method="GET" action="/admin" data-admin-filter-form="true" className="hidden min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-7 md:grid">
             <input type="hidden" name="filter" value={activeFilter} />
             <input type="hidden" name="page" value="1" />
             {selectedBookingId && <input type="hidden" name="bookingId" value={selectedBookingId} />}
@@ -861,6 +839,7 @@ export default async function AdminDashboardPage({
               <input
                 type="search"
                 name="search"
+                data-admin-search="true"
                 defaultValue={searchQuery}
                 placeholder="Name, email, reference..."
                 className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-emerald-500 focus:bg-white"
@@ -956,13 +935,13 @@ export default async function AdminDashboardPage({
           </form>
 
           <div className="md:hidden">
-            <form method="GET" action="/admin" className="space-y-3">
+            <form method="GET" action="/admin" data-admin-filter-form="true" className="space-y-3">
               <input type="hidden" name="filter" value={activeFilter} />
               <input type="hidden" name="page" value="1" />
               {selectedBookingId && <input type="hidden" name="bookingId" value={selectedBookingId} />}
               <label className="block">
                 <span className="sr-only">Search bookings</span>
-                <input type="search" name="search" defaultValue={searchQuery} placeholder="Search name, email or booking reference..." className="min-h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-base text-slate-900 outline-none transition focus:border-emerald-500 focus:bg-white" />
+                <input type="search" name="search" data-admin-search="true" defaultValue={searchQuery} placeholder="Search name, email or booking reference..." className="min-h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-base text-slate-900 outline-none transition focus:border-emerald-500 focus:bg-white" />
               </label>
               <div className="flex items-center gap-2">
                 <details className="min-w-0 flex-1">
@@ -982,6 +961,18 @@ export default async function AdminDashboardPage({
             </form>
           </div>
         </div>
+
+        <script dangerouslySetInnerHTML={{ __html: `
+          (() => {
+            document.querySelectorAll('[data-admin-search="true"]').forEach((input) => {
+              let timer;
+              input.addEventListener('input', () => {
+                window.clearTimeout(timer);
+                timer = window.setTimeout(() => input.form?.requestSubmit(), 350);
+              });
+            });
+          })();
+        ` }} />
 
         <div className="hidden overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-[0_18px_45px_rgba(15,23,42,0.05)] md:block">
           <div className="overflow-x-auto">

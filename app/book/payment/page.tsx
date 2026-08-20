@@ -146,6 +146,11 @@ function PaymentContent() {
     currency: "ZAR",
     maximumFractionDigits: 0,
   });
+  const whatsappReference = state.booking?.reservation_code || state.booking?.id;
+  const whatsappMessage = whatsappReference
+    ? `Hi Chamlija, I have a question about my reservation ${whatsappReference}.`
+    : "Hi Chamlija, I have a question about my booking.";
+  const whatsappUrl = `https://wa.me/27620873208?text=${encodeURIComponent(whatsappMessage)}`;
 
   const currentPaymentState = state.booking ? getBookingPaymentState({
     payment_status: state.booking.payment_status,
@@ -236,6 +241,9 @@ function PaymentContent() {
                   <Link href="/" className="mt-6 inline-flex min-h-11 items-center justify-center rounded-full bg-emerald-700 px-6 py-3 text-sm font-semibold text-white shadow-[0_14px_28px_rgba(4,120,87,0.18)] transition hover:bg-emerald-800">
                     ← Back to Home
                   </Link>
+                  <a href={whatsappUrl} target="_blank" rel="noreferrer" className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full border border-emerald-300 bg-white px-5 py-3 text-sm font-bold text-emerald-800 transition hover:bg-emerald-50">
+                    <span aria-hidden="true">💬</span> Chat with Chamlija on WhatsApp
+                  </a>
                 </div>
               ) : state.selectedMethod === "bank_transfer" && state.confirming ? (
                 <div className="rounded-[2rem] border border-emerald-200 bg-emerald-50 p-6 text-center">
